@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "impressions-tool"
+version = "0.1.0"
+description = "CLI to fetch TikTok and Instagram impressions and update Google Sheets"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Tool" }]
+dependencies = [
+  "TikTokApi>=6.5.0",
+  "apify-client>=1.6.0",
+  "gspread>=6.1.2",
+  "google-auth>=2.23.0",
+  "google-auth-oauthlib>=1.2.0",
+  "python-dotenv>=1.0.1",
+  "requests>=2.31.0",
+]
+
+[project.scripts]
+impressions = "cli:main"
+
+[tool.setuptools]
+py-modules = ["cli", "integrations", "main", "ig"]
+
+
