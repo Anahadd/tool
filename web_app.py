@@ -183,6 +183,10 @@ async def oauth_callback(state: str, code: str):
         file_id = stored_data["file_id"]
         credentials_store[f"token_{file_id}"] = token_id
         
+        # Debug logging
+        print(f"DEBUG: Saved OAuth token for file_id={file_id}, token_id={token_id}")
+        print(f"DEBUG: credentials_store keys: {list(credentials_store.keys())}")
+        
         # Clean up stored state
         del credentials_store[f"state_{state}"]
         
@@ -319,15 +323,27 @@ async def update_sheets(
         creds_path = None
         oauth_token_json = None
         
+        # Debug logging
+        print(f"DEBUG: update_sheets called with file_id={file_id}")
+        print(f"DEBUG: credentials_store keys: {list(credentials_store.keys())}")
+        print(f"DEBUG: oauth_tokens keys: {list(oauth_tokens.keys())}")
+        
         # Check if we have OAuth token for this file_id
         if file_id and f"token_{file_id}" in credentials_store:
             token_id = credentials_store[f"token_{file_id}"]
+            print(f"DEBUG: Found token_id={token_id} for file_id={file_id}")
             if token_id in oauth_tokens:
                 oauth_token_json = oauth_tokens[token_id]
+                print(f"DEBUG: Found oauth_token_json in oauth_tokens")
+            else:
+                print(f"DEBUG: token_id not in oauth_tokens!")
+        else:
+            print(f"DEBUG: No token found for file_id={file_id}")
         
         # Also check for uploaded credentials file
         if file_id and file_id in credentials_store:
             creds_path = credentials_store[file_id]
+            print(f"DEBUG: Found creds_path={creds_path}")
         
         disabled_cols = []
         if disable_columns:
