@@ -12,8 +12,8 @@ from typing import Optional
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 import config_store
@@ -381,10 +381,24 @@ async def health_check():
     }
 
 
-# Mount static files
+# Mount static files with cache control
 static_path = Path(__file__).parent / "static"
 if static_path.exists():
-    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    # Disable caching for static files in development to avoid stale JS/CSS
+    class NoCacheStaticFiles(StaticFiles):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+        
+        def file_response(self, *args, **kwargs):
+            response = super().file_response(*args, **kwargs)
+            # Add cache control headers for development
+            # In production, consider using versioned URLs instead
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+    
+    app.mount("/static", NoCacheStaticFiles(directory=str(static_path)), name="static")
 
 
 def run_server(host: str = None, port: int = None, reload: bool = False):

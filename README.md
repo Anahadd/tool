@@ -44,9 +44,10 @@ Your application is **production-ready**! Deploy to any of these platforms:
 
 ## 📚 Documentation
 
-- Web interface: Open http://127.0.0.1:8000
-- API docs: http://127.0.0.1:8000/docs
-- Deployment: See `DEPLOY.md`
+- **Web interface**: Open http://127.0.0.1:8000
+- **API docs**: http://127.0.0.1:8000/docs
+- **Deployment**: See `DEPLOYMENT_GUIDE.md`
+- **OAuth Setup** (for production): See `OAUTH_SETUP.md`
 
 ## ✅ Features
 
