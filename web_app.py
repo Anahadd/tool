@@ -98,6 +98,8 @@ async def oauth_start(file_id: str):
         # Get the base URL for redirect
         # Use environment variable or default
         base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        # Remove trailing slash to avoid double slashes
+        base_url = base_url.rstrip('/')
         redirect_uri = f"{base_url}/api/oauth-callback"
         
         # Log for debugging
@@ -143,6 +145,8 @@ async def oauth_callback(state: str, code: str):
         from google_auth_oauthlib.flow import Flow
         
         base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        # Remove trailing slash to avoid double slashes
+        base_url = base_url.rstrip('/')
         redirect_uri = f"{base_url}/api/oauth-callback"
         
         flow = Flow.from_client_secrets_file(
