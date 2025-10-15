@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalshi Internal - Impressions Tool</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>KALSHI INTERNAL</h1>
+            <p class="subtitle">Impressions Tool - TikTok & Instagram Stats</p>
+            <p class="credit">Built by anahad</p>
+        </header>
+
+        <div id="statusBar" class="status-bar hidden">
+            <div class="status-content">
+                <span id="statusIcon">ℹ️</span>
+                <span id="statusMessage">Ready</span>
+            </div>
+            <button id="dismissStatus" class="dismiss-btn" onclick="document.getElementById('statusBar').classList.add('hidden')">&times;</button>
+        </div>
+
+        <div class="card">
+            <h2>🔑 Step 1: API Configuration</h2>
+            <div class="form-group">
+                <label><span class="label-text">Apify API Token</span></label>
+                <div class="input-group">
+                    <input type="password" id="apifyToken" placeholder="Enter your Apify token..." class="input-field">
+                    <button id="saveTokenBtn" class="btn btn-secondary">Save</button>
+                </div>
+                <small class="helper-text">Get token at: <a href="https://console.apify.com/account/integrations" target="_blank">Apify Console</a></small>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📁 Step 2: Google Credentials</h2>
+            <div class="form-group">
+                <div id="dropZone" class="drop-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('fileInput').click()">
+                    <div id="dropContent" class="drop-zone-content">
+                        <p class="drop-text">Click to upload <strong>credentials.json</strong> or drag & drop</p>
+                    </div>
+                    <div id="fileInfo" class="file-info hidden">
+                        <span id="fileName"></span>
+                        <button onclick="clearFile(); event.stopPropagation();" class="clear-btn">&times;</button>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
+                <button id="browseBtn" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+            </div>
+            <button id="connectSheetsBtn" class="btn btn-primary" disabled>Connect to Google Sheets</button>
+        </div>
+
+        <div class="card">
+            <h2>📋 Step 3: Sheet Configuration</h2>
+            <div class="form-group">
+                <label><span class="label-text">Google Sheet URL</span></label>
+                <input type="text" id="spreadsheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="input-field">
+            </div>
+            <div class="form-group">
+                <label><span class="label-text">Worksheet Name</span></label>
+                <input type="text" id="worksheetName" value="Sheet1" class="input-field">
+            </div>
+            <button id="saveDefaultsBtn" class="btn btn-secondary">Save as Defaults</button>
+        </div>
+
+        <div class="card">
+            <div class="collapsible-header" onclick="toggleAdvanced()">
+                <h2>⚙️ Advanced Options</h2>
+                <span id="advancedToggle" class="toggle-icon">▼</span>
+            </div>
+            <div id="advancedOptions" class="advanced-options hidden">
+                <div class="form-group">
+                    <label><span class="label-text">Disable Columns</span></label>
+                    <input type="text" id="disableColumns" placeholder="e.g., name,impressions" class="input-field">
+                </div>
+                <div class="form-group">
+                    <label><span class="label-text">Row Range</span></label>
+                    <input type="text" id="rowRange" placeholder="e.g., 2:10" class="input-field">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="overrideData" checked>
+                        Override existing data
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <button id="runUpdateBtn" class="btn btn-primary btn-large">
+                <span id="runBtnText">🚀 RUN UPDATE</span>
+                <span id="runBtnSpinner" class="spinner hidden"></span>
+            </button>
+        </div>
+
+        <footer>
+            <p>Kalshi Internal | Built by anahad | <a href="/docs" target="_blank">API Docs</a></p>
+        </footer>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
+
