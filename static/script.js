@@ -1,2 +1,322 @@
-let uploadedFileId=null,ws=null;document.addEventListener("DOMContentLoaded",()=>{checkApifyToken(),setupEventListeners(),connectWebSocket()});function setupEventListeners(){document.getElementById("saveTokenBtn").addEventListener("click",saveApifyToken),document.getElementById("fileInput").addEventListener("change",handleFileSelect),document.getElementById("connectSheetsBtn").addEventListener("click",connectSheets),document.getElementById("saveDefaultsBtn").addEventListener("click",saveDefaults),document.getElementById("runUpdateBtn").addEventListener("click",runUpdate)}function showStatus(e,t="info"){const n=document.getElementById("statusBar"),a=document.getElementById("statusMessage"),o=document.getElementById("statusIcon");o.textContent={success:"✓",error:"✗",warning:"⚠",info:"ℹ️"}[t]||"ℹ️",a.textContent=e,n.className="status-bar",n.classList.add(t),n.classList.remove("hidden"),"success"===t&&setTimeout(()=>n.classList.add("hidden"),5e3)}async function checkApifyToken(){try{const e=await fetch("/api/check-apify-token");(await e.json()).is_set&&showStatus("✓ APIFY token is configured","success")}catch(e){console.error("Error:",e)}}async function saveApifyToken(){const e=document.getElementById("apifyToken").value.trim();if(!e)return void showStatus("Please enter your APIFY token","error");try{const t=new FormData;t.append("token",e);(await(await fetch("/api/set-apify-token",{method:"POST",body:t})).json()).success&&(showStatus("✓ APIFY token saved successfully","success"),document.getElementById("apifyToken").value="")}catch(e){showStatus("Failed to save token: "+e.message,"error")}}function handleDrop(e){e.preventDefault(),e.stopPropagation(),document.getElementById("dropZone").classList.remove("drag-over");const t=e.dataTransfer.files;t.length>0&&uploadFile(t[0])}function handleDragOver(e){e.preventDefault(),e.stopPropagation(),document.getElementById("dropZone").classList.add("drag-over")}function handleDragLeave(e){e.preventDefault(),e.stopPropagation(),document.getElementById("dropZone").classList.remove("drag-over")}function handleFileSelect(e){const t=e.target.files;t.length>0&&uploadFile(t[0])}async function uploadFile(e){if(!e.name.endsWith(".json"))return void showStatus("Please upload a JSON file","error");showStatus("Uploading credentials...","info");try{const t=new FormData;t.append("file",e);const n=await(await fetch("/api/upload-credentials",{method:"POST",body:t})).json();if(n.success){uploadedFileId=n.file_id;const t=document.getElementById("dropContent"),a=document.getElementById("fileInfo");document.getElementById("fileName").textContent=`✓ ${e.name}`,t.classList.add("hidden"),a.classList.remove("hidden"),document.getElementById("connectSheetsBtn").disabled=!1,showStatus("✓ Credentials uploaded successfully","success")}}catch(e){showStatus("Upload failed: "+e.message,"error")}}function clearFile(){uploadedFileId=null,document.getElementById("dropContent").classList.remove("hidden"),document.getElementById("fileInfo").classList.add("hidden"),document.getElementById("connectSheetsBtn").disabled=!0,document.getElementById("fileInput").value=""}async function connectSheets(){if(!uploadedFileId)return void showStatus("Please upload credentials first","error");showStatus("Connecting to Google Sheets...","info");try{const e=new FormData;e.append("file_id",uploadedFileId);(await(await fetch("/api/connect-sheets",{method:"POST",body:e})).json()).success&&showStatus("✓ Successfully connected to Google Sheets!","success")}catch(e){showStatus("Connection failed: "+e.message,"error")}}async function saveDefaults(){const e=document.getElementById("spreadsheetUrl").value.trim(),t=document.getElementById("worksheetName").value.trim();if(!e||!t)return void showStatus("Please enter both spreadsheet URL and worksheet name","error");try{const n=new FormData;n.append("spreadsheet",e),n.append("worksheet",t);(await(await fetch("/api/set-defaults",{method:"POST",body:n})).json()).success&&showStatus("✓ Defaults saved successfully","success")}catch(e){showStatus("Failed to save defaults: "+e.message,"error")}}async function runUpdate(){const e=document.getElementById("spreadsheetUrl").value.trim(),t=document.getElementById("worksheetName").value.trim(),n=document.getElementById("disableColumns").value.trim(),a=document.getElementById("rowRange").value.trim(),o=document.getElementById("overrideData").checked,d=document.getElementById("runUpdateBtn"),c=document.getElementById("runBtnText"),s=document.getElementById("runBtnSpinner");d.disabled=!0,c.classList.add("hidden"),s.classList.remove("hidden"),showStatus("⏳ Update in progress...","info");try{const d=new FormData;e&&d.append("spreadsheet",e),t&&d.append("worksheet",t),uploadedFileId&&d.append("file_id",uploadedFileId),n&&d.append("disable_columns",n),d.append("override",o),a&&(parts=a.split(":"),2===parts.length&&(d.append("start_row",parseInt(parts[0])),d.append("end_row",parseInt(parts[1])))),(await(await fetch("/api/update-sheets",{method:"POST",body:d})).json()).success?showStatus("✓ Sheet updated successfully!","success"):showStatus("Update failed","error")}catch(e){showStatus("✗ Update failed: "+e.message,"error")}finally{d.disabled=!1,c.classList.remove("hidden"),s.classList.add("hidden")}}function connectWebSocket(){const e=("https:"===window.location.protocol?"wss:":"ws:")+"//"+window.location.host+"/ws";(ws=new WebSocket(e)).onopen=()=>console.log("WebSocket connected"),ws.onclose=()=>setTimeout(connectWebSocket,5e3),ws.onerror=e=>console.error("WebSocket error:",e)}function toggleAdvanced(){const e=document.getElementById("advancedOptions"),t=document.getElementById("advancedToggle");e.classList.contains("hidden")?(e.classList.remove("hidden"),t.textContent="▲"):(e.classList.add("hidden"),t.textContent="▼")}
+// Global state
+let uploadedFileId = null;
+let ws = null;
 
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    checkApifyToken();
+    setupEventListeners();
+    connectWebSocket();
+    setupOAuthMessageListener();
+});
+
+function setupEventListeners() {
+    document.getElementById('saveTokenBtn').addEventListener('click', saveApifyToken);
+    document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+    document.getElementById('connectSheetsBtn').addEventListener('click', connectSheets);
+    document.getElementById('saveDefaultsBtn').addEventListener('click', saveDefaults);
+    document.getElementById('runUpdateBtn').addEventListener('click', runUpdate);
+}
+
+function showStatus(message, type = 'info') {
+    const statusBar = document.getElementById('statusBar');
+    const statusMessage = document.getElementById('statusMessage');
+    const statusIcon = document.getElementById('statusIcon');
+    
+    const icons = {
+        'success': '✓',
+        'error': '✗',
+        'warning': '⚠',
+        'info': 'ℹ️'
+    };
+    
+    statusIcon.textContent = icons[type] || 'ℹ️';
+    statusMessage.textContent = message;
+    statusBar.className = 'status-bar';
+    statusBar.classList.add(type);
+    statusBar.classList.remove('hidden');
+    
+    if (type === 'success') {
+        setTimeout(() => statusBar.classList.add('hidden'), 5000);
+    }
+}
+
+async function checkApifyToken() {
+    try {
+        const response = await fetch('/api/check-apify-token');
+        const data = await response.json();
+        if (data.is_set) {
+            showStatus('✓ APIFY token is configured', 'success');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function saveApifyToken() {
+    const token = document.getElementById('apifyToken').value.trim();
+    if (!token) {
+        showStatus('Please enter your APIFY token', 'error');
+        return;
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('token', token);
+        
+        const response = await fetch('/api/set-apify-token', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showStatus('✓ APIFY token saved successfully', 'success');
+            document.getElementById('apifyToken').value = '';
+        }
+    } catch (error) {
+        showStatus('Failed to save token: ' + error.message, 'error');
+    }
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    document.getElementById('dropZone').classList.remove('drag-over');
+    
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        uploadFile(files[0]);
+    }
+}
+
+function handleDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    document.getElementById('dropZone').classList.add('drag-over');
+}
+
+function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    document.getElementById('dropZone').classList.remove('drag-over');
+}
+
+function handleFileSelect(event) {
+    const files = event.target.files;
+    if (files.length > 0) {
+        uploadFile(files[0]);
+    }
+}
+
+async function uploadFile(file) {
+    if (!file.name.endsWith('.json')) {
+        showStatus('Please upload a JSON file', 'error');
+        return;
+    }
+    
+    showStatus('Uploading credentials...', 'info');
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('/api/upload-credentials', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            uploadedFileId = data.file_id;
+            
+            const dropContent = document.getElementById('dropContent');
+            const fileInfo = document.getElementById('fileInfo');
+            
+            document.getElementById('fileName').textContent = `✓ ${file.name}`;
+            dropContent.classList.add('hidden');
+            fileInfo.classList.remove('hidden');
+            document.getElementById('connectSheetsBtn').disabled = false;
+            
+            showStatus('✓ Credentials uploaded successfully', 'success');
+        }
+    } catch (error) {
+        showStatus('Upload failed: ' + error.message, 'error');
+    }
+}
+
+function clearFile() {
+    uploadedFileId = null;
+    document.getElementById('dropContent').classList.remove('hidden');
+    document.getElementById('fileInfo').classList.add('hidden');
+    document.getElementById('connectSheetsBtn').disabled = true;
+    document.getElementById('fileInput').value = '';
+}
+
+// Setup listener for OAuth popup messages
+function setupOAuthMessageListener() {
+    window.addEventListener('message', (event) => {
+        // Security: only accept messages from same origin
+        if (event.origin !== window.location.origin) {
+            return;
+        }
+        
+        if (event.data.type === 'oauth-success') {
+            showStatus('✓ Successfully connected to Google Sheets!', 'success');
+        } else if (event.data.type === 'oauth-error') {
+            showStatus('Connection failed: ' + event.data.error, 'error');
+        }
+    });
+}
+
+async function connectSheets() {
+    if (!uploadedFileId) {
+        showStatus('Please upload credentials first', 'error');
+        return;
+    }
+    
+    showStatus('Opening Google authentication...', 'info');
+    
+    try {
+        // Get the OAuth URL from the server
+        const response = await fetch(`/api/oauth-start?file_id=${uploadedFileId}`);
+        const data = await response.json();
+        
+        if (data.success && data.authorization_url) {
+            // Open OAuth URL in a popup
+            const width = 600;
+            const height = 700;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+            
+            const popup = window.open(
+                data.authorization_url,
+                'Google Authentication',
+                `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+            );
+            
+            if (!popup) {
+                showStatus('Popup blocked! Please allow popups for this site.', 'error');
+            } else {
+                showStatus('Complete authentication in the popup window...', 'info');
+            }
+        } else {
+            showStatus('Failed to start authentication', 'error');
+        }
+    } catch (error) {
+        showStatus('Connection failed: ' + error.message, 'error');
+    }
+}
+
+async function saveDefaults() {
+    const spreadsheet = document.getElementById('spreadsheetUrl').value.trim();
+    const worksheet = document.getElementById('worksheetName').value.trim();
+    
+    if (!spreadsheet || !worksheet) {
+        showStatus('Please enter both spreadsheet URL and worksheet name', 'error');
+        return;
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('spreadsheet', spreadsheet);
+        formData.append('worksheet', worksheet);
+        
+        const response = await fetch('/api/set-defaults', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showStatus('✓ Defaults saved successfully', 'success');
+        }
+    } catch (error) {
+        showStatus('Failed to save defaults: ' + error.message, 'error');
+    }
+}
+
+async function runUpdate() {
+    const spreadsheet = document.getElementById('spreadsheetUrl').value.trim();
+    const worksheet = document.getElementById('worksheetName').value.trim();
+    const disableColumns = document.getElementById('disableColumns').value.trim();
+    const rowRange = document.getElementById('rowRange').value.trim();
+    const override = document.getElementById('overrideData').checked;
+    
+    const btnRun = document.getElementById('runUpdateBtn');
+    const btnText = document.getElementById('runBtnText');
+    const btnSpinner = document.getElementById('runBtnSpinner');
+    
+    btnRun.disabled = true;
+    btnText.classList.add('hidden');
+    btnSpinner.classList.remove('hidden');
+    showStatus('⏳ Update in progress...', 'info');
+    
+    try {
+        const formData = new FormData();
+        if (spreadsheet) formData.append('spreadsheet', spreadsheet);
+        if (worksheet) formData.append('worksheet', worksheet);
+        if (uploadedFileId) formData.append('file_id', uploadedFileId);
+        if (disableColumns) formData.append('disable_columns', disableColumns);
+        formData.append('override', override);
+        
+        if (rowRange) {
+            const parts = rowRange.split(':');
+            if (parts.length === 2) {
+                formData.append('start_row', parseInt(parts[0]));
+                formData.append('end_row', parseInt(parts[1]));
+            }
+        }
+        
+        const response = await fetch('/api/update-sheets', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showStatus('✓ Sheet updated successfully!', 'success');
+        } else {
+            showStatus('Update failed', 'error');
+        }
+    } catch (error) {
+        showStatus('✗ Update failed: ' + error.message, 'error');
+    } finally {
+        btnRun.disabled = false;
+        btnText.classList.remove('hidden');
+        btnSpinner.classList.add('hidden');
+    }
+}
+
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = protocol + '//' + window.location.host + '/ws';
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+        console.log('WebSocket connected');
+    };
+    
+    ws.onclose = () => {
+        setTimeout(connectWebSocket, 5000);
+    };
+    
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+}
+
+function toggleAdvanced() {
+    const options = document.getElementById('advancedOptions');
+    const toggle = document.getElementById('advancedToggle');
+    
+    if (options.classList.contains('hidden')) {
+        options.classList.remove('hidden');
+        toggle.textContent = '▲';
+    } else {
+        options.classList.add('hidden');
+        toggle.textContent = '▼';
+    }
+}

@@ -56,9 +56,12 @@ git push
 
 # 2. Go to https://railway.app and deploy from GitHub
 
-# 3. Add environment variable:
+# 3. Add environment variables:
 APIFY_TOKEN=your_apify_token
+BASE_URL=https://your-app.railway.app
 ```
+
+**Note**: The `BASE_URL` is required for Google Sheets OAuth to work. See [OAUTH_SETUP.md](OAUTH_SETUP.md) for complete setup instructions.
 
 **Done!** Your app will be live at `https://your-app.railway.app`
 
@@ -92,11 +95,13 @@ After deploying:
 ### Required
 ```bash
 APIFY_TOKEN=apify_api_xxxxxxxxx
+BASE_URL=https://your-app-url.com  # Required for Google OAuth
 ```
 
 ### Recommended for Production
 ```bash
 APIFY_TOKEN=apify_api_xxxxxxxxx
+BASE_URL=https://your-app-url.com
 ALLOWED_ORIGINS=https://your-domain.com
 LOG_LEVEL=info
 ```

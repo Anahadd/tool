@@ -77,9 +77,9 @@ async def upload_credentials(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/connect-sheets")
-async def connect_sheets(file_id: str = Form(...)):
-    """Authenticate with Google Sheets using uploaded credentials"""
+@app.get("/api/oauth-start")
+async def oauth_start(file_id: str):
+    """Start OAuth flow - returns authorization URL"""
     try:
         if file_id not in credentials_store:
             raise HTTPException(status_code=400, detail="Credentials file not found")
@@ -91,18 +91,178 @@ async def connect_sheets(file_id: str = Form(...)):
             "https://www.googleapis.com/auth/drive.readonly",
         ]
         
-        token_path = integrations_mod.connect_sheets_oauth(
+        from google_auth_oauthlib.flow import Flow
+        from pathlib import Path
+        import json
+        
+        # Get the base URL for redirect
+        # Use environment variable or default
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        redirect_uri = f"{base_url}/api/oauth-callback"
+        
+        flow = Flow.from_client_secrets_file(
+            creds_path,
             scopes=scopes,
-            client_secrets_path=creds_path
+            redirect_uri=redirect_uri
         )
+        
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true'
+        )
+        
+        # Store the flow state and file_id for callback
+        credentials_store[f"state_{state}"] = {
+            "creds_path": creds_path,
+            "file_id": file_id
+        }
         
         return {
             "success": True,
-            "message": "Successfully connected to Google Sheets",
-            "token_path": str(token_path)
+            "authorization_url": authorization_url,
+            "state": state
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to connect: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start OAuth: {str(e)}")
+
+
+@app.get("/api/oauth-callback")
+async def oauth_callback(state: str, code: str):
+    """Handle OAuth callback from Google"""
+    try:
+        if f"state_{state}" not in credentials_store:
+            raise HTTPException(status_code=400, detail="Invalid OAuth state")
+        
+        stored_data = credentials_store[f"state_{state}"]
+        creds_path = stored_data["creds_path"]
+        
+        from google_auth_oauthlib.flow import Flow
+        
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        redirect_uri = f"{base_url}/api/oauth-callback"
+        
+        flow = Flow.from_client_secrets_file(
+            creds_path,
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive.readonly",
+            ],
+            redirect_uri=redirect_uri,
+            state=state
+        )
+        
+        flow.fetch_token(code=code)
+        creds = flow.credentials
+        
+        # Save credentials
+        config_dir = Path.home() / ".tool_google"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        token_file = config_dir / "token.json"
+        token_file.write_text(creds.to_json())
+        
+        # Clean up stored state
+        del credentials_store[f"state_{state}"]
+        
+        # Return HTML that closes the popup and notifies parent window
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authentication Successful</title>
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                }
+                .container {
+                    text-align: center;
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 3rem;
+                    border-radius: 20px;
+                    backdrop-filter: blur(10px);
+                }
+                .checkmark {
+                    font-size: 4rem;
+                    animation: scale 0.5s ease-in-out;
+                }
+                @keyframes scale {
+                    0% { transform: scale(0); }
+                    50% { transform: scale(1.2); }
+                    100% { transform: scale(1); }
+                }
+                h1 { margin: 1rem 0; font-size: 2rem; }
+                p { opacity: 0.9; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="checkmark">✓</div>
+                <h1>Authentication Successful!</h1>
+                <p>You can close this window now.</p>
+            </div>
+            <script>
+                // Notify parent window if opened in popup
+                if (window.opener) {
+                    window.opener.postMessage({type: 'oauth-success'}, '*');
+                    setTimeout(() => window.close(), 2000);
+                } else {
+                    // If not a popup, redirect to home
+                    setTimeout(() => window.location.href = '/', 2000);
+                }
+            </script>
+        </body>
+        </html>
+        """)
+    except Exception as e:
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authentication Failed</title>
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                    color: white;
+                }}
+                .container {{
+                    text-align: center;
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 3rem;
+                    border-radius: 20px;
+                    backdrop-filter: blur(10px);
+                }}
+                .error {{ font-size: 4rem; }}
+                h1 {{ margin: 1rem 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error">✗</div>
+                <h1>Authentication Failed</h1>
+                <p>{str(e)}</p>
+                <p>Please close this window and try again.</p>
+            </div>
+            <script>
+                if (window.opener) {{
+                    window.opener.postMessage({{type: 'oauth-error', error: '{str(e)}'}}, '*');
+                    setTimeout(() => window.close(), 3000);
+                }}
+            </script>
+        </body>
+        </html>
+        """, status_code=500)
 
 
 @app.post("/api/set-defaults")
