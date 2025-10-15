@@ -55,10 +55,8 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:8000/api/health')" || exit 1
+# No healthcheck in Dockerfile - Railway handles it
 
-# Run
-CMD ["uvicorn", "web_app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run - use PORT env var from Railway
+CMD uvicorn web_app:app --host 0.0.0.0 --port ${PORT:-8000}
 
