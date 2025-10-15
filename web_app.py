@@ -100,6 +100,10 @@ async def oauth_start(file_id: str):
         base_url = os.getenv("BASE_URL", "http://localhost:8000")
         redirect_uri = f"{base_url}/api/oauth-callback"
         
+        # Log for debugging
+        print(f"DEBUG: BASE_URL={base_url}")
+        print(f"DEBUG: redirect_uri={redirect_uri}")
+        
         flow = Flow.from_client_secrets_file(
             creds_path,
             scopes=scopes,
