@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install -r requirements.txt && python -m playwright install chromium"
+  },
+  "deploy": {
+    "startCommand": "uvicorn web_app:app --host 0.0.0.0 --port $PORT",
+    "healthcheckPath": "/api/health",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
+
