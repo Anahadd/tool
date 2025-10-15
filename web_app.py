@@ -40,7 +40,9 @@ active_connections = []
 credentials_store = {}
 
 # Store for OAuth tokens (in-memory, persists during app lifetime)
+# Store the actual credentials object, not JSON
 oauth_tokens = {}
+oauth_credentials = {}  # Store Credentials objects directly
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -165,12 +167,13 @@ async def oauth_callback(state: str, code: str):
         flow.fetch_token(code=code)
         creds = flow.credentials
         
-        # Save credentials in memory (Railway filesystem is ephemeral)
+        # Save credentials object directly in memory (Railway filesystem is ephemeral)
         import uuid
         token_id = str(uuid.uuid4())
-        oauth_tokens[token_id] = creds.to_json()
+        oauth_credentials[token_id] = creds  # Store the actual Credentials object
         
-        # Also save to disk for backwards compatibility (CLI usage)
+        # Also save JSON and to disk for backwards compatibility
+        oauth_tokens[token_id] = creds.to_json()
         try:
             config_dir = Path.home() / ".tool_google"
             config_dir.mkdir(parents=True, exist_ok=True)
@@ -184,8 +187,9 @@ async def oauth_callback(state: str, code: str):
         credentials_store[f"token_{file_id}"] = token_id
         
         # Debug logging
-        print(f"DEBUG: Saved OAuth token for file_id={file_id}, token_id={token_id}")
+        print(f"DEBUG: Saved OAuth credentials for file_id={file_id}, token_id={token_id}")
         print(f"DEBUG: credentials_store keys: {list(credentials_store.keys())}")
+        print(f"DEBUG: oauth_credentials keys: {list(oauth_credentials.keys())}")
         
         # Clean up stored state
         del credentials_store[f"state_{state}"]
@@ -326,17 +330,18 @@ async def update_sheets(
         # Debug logging
         print(f"DEBUG: update_sheets called with file_id={file_id}")
         print(f"DEBUG: credentials_store keys: {list(credentials_store.keys())}")
-        print(f"DEBUG: oauth_tokens keys: {list(oauth_tokens.keys())}")
+        print(f"DEBUG: oauth_credentials keys: {list(oauth_credentials.keys())}")
         
-        # Check if we have OAuth token for this file_id
+        # Check if we have OAuth credentials for this file_id
+        oauth_creds = None
         if file_id and f"token_{file_id}" in credentials_store:
             token_id = credentials_store[f"token_{file_id}"]
             print(f"DEBUG: Found token_id={token_id} for file_id={file_id}")
-            if token_id in oauth_tokens:
-                oauth_token_json = oauth_tokens[token_id]
-                print(f"DEBUG: Found oauth_token_json in oauth_tokens")
+            if token_id in oauth_credentials:
+                oauth_creds = oauth_credentials[token_id]
+                print(f"DEBUG: Found OAuth Credentials object")
             else:
-                print(f"DEBUG: token_id not in oauth_tokens!")
+                print(f"DEBUG: token_id not in oauth_credentials!")
         else:
             print(f"DEBUG: No token found for file_id={file_id}")
         
@@ -363,7 +368,7 @@ async def update_sheets(
             override=override,
             start_row=start_row,
             end_row=end_row,
-            oauth_token_json=oauth_token_json,
+            oauth_creds=oauth_creds,
         )
         
         return {
