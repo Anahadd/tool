@@ -44,6 +44,7 @@ Your application is **production-ready**! Deploy to any of these platforms:
 
 ## 📚 Documentation
 
+- **🚀 NEW USER? START HERE**: See `SETUP_GUIDE.md` - Complete step-by-step setup
 - **Web interface**: Open http://127.0.0.1:8000
 - **API docs**: http://127.0.0.1:8000/docs
 - **Deployment**: See `DEPLOYMENT_GUIDE.md`
