@@ -4,14 +4,12 @@ let ws = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    checkApifyToken();
     setupEventListeners();
     connectWebSocket();
     setupOAuthMessageListener();
 });
 
 function setupEventListeners() {
-    document.getElementById('saveTokenBtn').addEventListener('click', saveApifyToken);
     document.getElementById('fileInput').addEventListener('change', handleFileSelect);
     document.getElementById('connectSheetsBtn').addEventListener('click', connectSheets);
     document.getElementById('saveDefaultsBtn').addEventListener('click', saveDefaults);
@@ -38,44 +36,6 @@ function showStatus(message, type = 'info') {
     
     if (type === 'success') {
         setTimeout(() => statusBar.classList.add('hidden'), 5000);
-    }
-}
-
-async function checkApifyToken() {
-    try {
-        const response = await fetch('/api/check-apify-token');
-        const data = await response.json();
-        if (data.is_set) {
-            showStatus('✓ APIFY token is configured', 'success');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}
-
-async function saveApifyToken() {
-    const token = document.getElementById('apifyToken').value.trim();
-    if (!token) {
-        showStatus('Please enter your APIFY token', 'error');
-        return;
-    }
-    
-    try {
-        const formData = new FormData();
-        formData.append('token', token);
-        
-        const response = await fetch('/api/set-apify-token', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-            showStatus('✓ APIFY token saved successfully', 'success');
-            document.getElementById('apifyToken').value = '';
-        }
-    } catch (error) {
-        showStatus('Failed to save token: ' + error.message, 'error');
     }
 }
 

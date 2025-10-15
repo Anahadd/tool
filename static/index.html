@@ -23,19 +23,7 @@
         </div>
 
         <div class="card">
-            <h2>🔑 Step 1: API Configuration</h2>
-            <div class="form-group">
-                <label><span class="label-text">Apify API Token</span></label>
-                <div class="input-group">
-                    <input type="password" id="apifyToken" placeholder="Enter your Apify token..." class="input-field">
-                    <button id="saveTokenBtn" class="btn btn-secondary">Save</button>
-                </div>
-                <small class="helper-text">Get token at: <a href="https://console.apify.com/account/integrations" target="_blank">Apify Console</a></small>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>📁 Step 2: Google Credentials</h2>
+            <h2>📁 Step 1: Google Credentials</h2>
             <div class="form-group">
                 <div id="dropZone" class="drop-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('fileInput').click()">
                     <div id="dropContent" class="drop-zone-content">
@@ -53,7 +41,7 @@
         </div>
 
         <div class="card">
-            <h2>📋 Step 3: Sheet Configuration</h2>
+            <h2>📋 Step 2: Sheet Configuration</h2>
             <div class="form-group">
                 <label><span class="label-text">Google Sheet URL</span></label>
                 <input type="text" id="spreadsheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="input-field">
@@ -99,7 +87,7 @@
             <p>Kalshi Internal | Built by anahad | <a href="/docs" target="_blank">API Docs</a></p>
         </footer>
     </div>
-    <script src="/static/script.js?v=2"></script>
+    <script src="/static/script.js?v=3"></script>
 </body>
 </html>
 
