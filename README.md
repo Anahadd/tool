@@ -29,15 +29,18 @@ python -m playwright install chromium
 python3 web_app.py
 ```
 
-## 🌐 Deploy to Railway
+## 🌐 Deployment
 
-1. Push to GitHub
-2. Go to https://railway.app
-3. Deploy from GitHub repo
-4. Add environment variable: `APIFY_TOKEN`
-5. Done!
+Your application is **production-ready**! Deploy to any of these platforms:
 
-See `DEPLOY.md` for details.
+- **Railway.app** ⭐ (Recommended - Easiest)
+- **Render.com** (Free tier available)
+- **Fly.io** (Global edge deployment)
+- **Google Cloud Run** (Pay-per-use)
+- **Heroku, AWS, Azure, DigitalOcean** (Enterprise options)
+- **Self-hosted VPS** (Full control)
+
+**See [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) for detailed instructions** for each platform.
 
 ## 📚 Documentation
 

@@ -22,9 +22,12 @@ import integrations as integrations_mod
 app = FastAPI(title="Kalshi Internal - Impressions Tool", description="TikTok & Instagram stats updater")
 
 # Enable CORS
+# In production, set ALLOWED_ORIGINS env var to comma-separated list of domains
+# Example: ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -224,8 +227,17 @@ if static_path.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8000, reload: bool = False):
+def run_server(host: str = None, port: int = None, reload: bool = False):
     """Run the web server"""
+    # Get host and port from environment or use defaults
+    if host is None:
+        host = os.getenv("HOST", "0.0.0.0" if os.getenv("PORT") else "127.0.0.1")
+    if port is None:
+        port = int(os.getenv("PORT", "8000"))
+    
+    # Configure logging for production
+    log_level = os.getenv("LOG_LEVEL", "info").lower()
+    
     print(f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Kalshi Internal - Impressions Tool
@@ -243,10 +255,13 @@ def run_server(host: str = "127.0.0.1", port: int = 8000, reload: bool = False):
         host=host,
         port=port,
         reload=reload,
-        log_level="info"
+        log_level=log_level,
+        access_log=True
     )
 
 
 if __name__ == "__main__":
-    run_server(reload=True)
+    # Enable reload only in development (when PORT env var is not set)
+    is_dev = not os.getenv("PORT")
+    run_server(reload=is_dev)
 
