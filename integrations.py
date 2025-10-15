@@ -294,6 +294,7 @@ def _open_sheet(
     creds_path: str,
     spreadsheet_title: str,
     worksheet_name: str = "Impressions",
+    oauth_token_json: Optional[str] = None,
 ):
     val = (spreadsheet_title or "").strip()
     is_url = val.startswith("http://") or val.startswith("https://")
@@ -304,7 +305,7 @@ def _open_sheet(
     if not (is_url or is_key) and allow_title:
         scopes.append("https://www.googleapis.com/auth/drive.readonly")
 
-    client = _authorize_gspread(scopes=scopes, service_account_path=creds_path)
+    client = _authorize_gspread(scopes=scopes, service_account_path=creds_path, oauth_token_json=oauth_token_json)
 
     ss = None
     try:
@@ -332,7 +333,7 @@ def _open_sheet(
         ws = ss.get_worksheet(0)
     return ws
 
-def _authorize_gspread(scopes: List[str], service_account_path: str = ""):
+def _authorize_gspread(scopes: List[str], service_account_path: str = "", oauth_token_json: Optional[str] = None):
     sa_path = (service_account_path or os.getenv("GOOGLE_SHEETS_CREDS") or "").strip()
     if sa_path:
         try:
@@ -342,22 +343,34 @@ def _authorize_gspread(scopes: List[str], service_account_path: str = ""):
             # fall through to OAuth
             pass
 
-    # OAuth user credentials flow; requires a prior connect via CLI
+    # Check for OAuth token passed from web app (in-memory)
     creds = None
-    if OAUTH_TOKEN_FILE.exists():
+    if oauth_token_json:
+        try:
+            import json
+            creds = UserCredentials.from_authorized_user_info(json.loads(oauth_token_json), scopes)
+        except Exception as e:
+            _log(f"Warning: Failed to load OAuth token from memory: {e}")
+            creds = None
+    
+    # Fall back to OAuth token from file (for CLI usage)
+    if not creds and OAUTH_TOKEN_FILE.exists():
         try:
             creds = UserCredentials.from_authorized_user_file(str(OAUTH_TOKEN_FILE), scopes)
         except Exception:
             creds = None
+    
     if creds and getattr(creds, "expired", False) and getattr(creds, "refresh_token", None):
         try:
             creds.refresh(Request())
         except Exception:
             creds = None
             try:
-                OAUTH_TOKEN_FILE.unlink()
+                if OAUTH_TOKEN_FILE.exists():
+                    OAUTH_TOKEN_FILE.unlink()
             except Exception:
                 pass
+    
     if not creds:
         raise RuntimeError(
             "Google Sheets not connected. Run `impressions connect-sheets` to link your "
@@ -394,6 +407,7 @@ async def update_sheet_views_likes_comments(
     override: bool = True,
     start_row: Optional[int] = None,
     end_row: Optional[int] = None,
+    oauth_token_json: Optional[str] = None,
 ):
     """Update Google Sheet with latest stats. Production-ready with error handling and progress tracking."""
     try:
@@ -409,7 +423,7 @@ async def update_sheet_views_likes_comments(
             )
 
         _log(f"Opening spreadsheet: {spreadsheet_title[:50]}...")
-        ws = _open_sheet(creds_path, spreadsheet_title, worksheet_name)
+        ws = _open_sheet(creds_path, spreadsheet_title, worksheet_name, oauth_token_json=oauth_token_json)
         
         _log("Reading sheet data...")
         values = ws.get_all_values()

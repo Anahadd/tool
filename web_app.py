@@ -39,6 +39,9 @@ active_connections = []
 # Store for uploaded credentials (temporary)
 credentials_store = {}
 
+# Store for OAuth tokens (in-memory, persists during app lifetime)
+oauth_tokens = {}
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -162,11 +165,23 @@ async def oauth_callback(state: str, code: str):
         flow.fetch_token(code=code)
         creds = flow.credentials
         
-        # Save credentials
-        config_dir = Path.home() / ".tool_google"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        token_file = config_dir / "token.json"
-        token_file.write_text(creds.to_json())
+        # Save credentials in memory (Railway filesystem is ephemeral)
+        import uuid
+        token_id = str(uuid.uuid4())
+        oauth_tokens[token_id] = creds.to_json()
+        
+        # Also save to disk for backwards compatibility (CLI usage)
+        try:
+            config_dir = Path.home() / ".tool_google"
+            config_dir.mkdir(parents=True, exist_ok=True)
+            token_file = config_dir / "token.json"
+            token_file.write_text(creds.to_json())
+        except Exception:
+            pass  # Ignore disk write errors in production
+        
+        # Store token_id for this session
+        file_id = stored_data["file_id"]
+        credentials_store[f"token_{file_id}"] = token_id
         
         # Clean up stored state
         del credentials_store[f"state_{state}"]
@@ -302,6 +317,15 @@ async def update_sheets(
     """Run the sheet update process"""
     try:
         creds_path = None
+        oauth_token_json = None
+        
+        # Check if we have OAuth token for this file_id
+        if file_id and f"token_{file_id}" in credentials_store:
+            token_id = credentials_store[f"token_{file_id}"]
+            if token_id in oauth_tokens:
+                oauth_token_json = oauth_tokens[token_id]
+        
+        # Also check for uploaded credentials file
         if file_id and file_id in credentials_store:
             creds_path = credentials_store[file_id]
         
@@ -323,6 +347,7 @@ async def update_sheets(
             override=override,
             start_row=start_row,
             end_row=end_row,
+            oauth_token_json=oauth_token_json,
         )
         
         return {
