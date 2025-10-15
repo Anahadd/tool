@@ -376,9 +376,15 @@ async def update_sheets(
             "message": "Sheet updated successfully"
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        error_msg = str(e)
+        print(f"ERROR: Validation error in update_sheets: {error_msg}")
+        raise HTTPException(status_code=400, detail=error_msg)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+        error_msg = str(e)
+        print(f"ERROR: Exception in update_sheets: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Update failed: {error_msg}")
 
 
 @app.get("/api/check-apify-token")
