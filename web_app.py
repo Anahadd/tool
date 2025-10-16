@@ -345,6 +345,13 @@ async def update_sheets(
         else:
             print(f"DEBUG: No token found for file_id={file_id}")
         
+        # Require OAuth authentication
+        if not oauth_creds:
+            raise HTTPException(
+                status_code=400, 
+                detail="Please click 'Connect to Google Sheets' button first to authenticate with your Google account."
+            )
+        
         # Also check for uploaded credentials file
         if file_id and file_id in credentials_store:
             creds_path = credentials_store[file_id]
