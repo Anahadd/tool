@@ -614,7 +614,8 @@ async def update_sheet_views_likes_comments(
         unsupported_count = 0
         
         # Get today's date in MM/DD/YYYY format (without leading zeros)
-        now = datetime.now()
+        # Use UTC for consistency since Railway servers are in UTC
+        now = datetime.now(timezone.utc)
         try:
             # Try Unix-style format specifiers (removes leading zeros)
             today_date = now.strftime("%-m/%-d/%Y")
@@ -827,9 +828,9 @@ async def update_sheet_views_likes_comments(
             if last_changed_col:
                 existing_changed = [values[i][last_changed_col - 1] if last_changed_col <= len(values[i]) else "" for i in range(process_start_idx, process_end_idx)]
                 try:
-                    now_human = datetime.now().strftime("%-I:%M %b %d")
+                    now_human = datetime.now(timezone.utc).strftime("%-I:%M %b %d")
                 except Exception:
-                    now_human = datetime.now().strftime("%I:%M %b %d").lstrip("0")
+                    now_human = datetime.now(timezone.utc).strftime("%I:%M %b %d").lstrip("0")
                 last_changed_out: List[str] = []
                 for i in range(0, end - start + 1):
                     last_changed_out.append(now_human if changed_rows[i] else (existing_changed[i] or ""))
