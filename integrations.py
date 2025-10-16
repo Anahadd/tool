@@ -794,33 +794,34 @@ async def update_sheet_views_likes_comments(
         
         try:
             # Only update columns that exist
+            # Use value_input_option='USER_ENTERED' to interpret numbers as numbers, not text
             if name_col and new_names:
                 rng_names = f"{_col_letter(name_col)}{start}:{_col_letter(name_col)}{end}"
-                ws.update(rng_names, [[x] for x in new_names])
+                ws.update(rng_names, [[x] for x in new_names], value_input_option='USER_ENTERED')
             
             if channel_col and new_channels:
                 rng_channels = f"{_col_letter(channel_col)}{start}:{_col_letter(channel_col)}{end}"
-                ws.update(rng_channels, [[x] for x in new_channels])
+                ws.update(rng_channels, [[x] for x in new_channels], value_input_option='USER_ENTERED')
             
             if views_col and new_views:
                 rng_views = f"{_col_letter(views_col)}{start}:{_col_letter(views_col)}{end}"
-                ws.update(rng_views, [[x] for x in new_views])
+                ws.update(rng_views, [[x] for x in new_views], value_input_option='USER_ENTERED')
             
             if likes_col and new_likes:
                 rng_likes = f"{_col_letter(likes_col)}{start}:{_col_letter(likes_col)}{end}"
-                ws.update(rng_likes, [[x] for x in new_likes])
+                ws.update(rng_likes, [[x] for x in new_likes], value_input_option='USER_ENTERED')
             
             if comments_col and new_comments:
                 rng_comments = f"{_col_letter(comments_col)}{start}:{_col_letter(comments_col)}{end}"
-                ws.update(rng_comments, [[x] for x in new_comments])
+                ws.update(rng_comments, [[x] for x in new_comments], value_input_option='USER_ENTERED')
             
             if impressions_col and new_impressions:
                 rng_impressions = f"{_col_letter(impressions_col)}{start}:{_col_letter(impressions_col)}{end}"
-                ws.update(rng_impressions, [[x] for x in new_impressions])
+                ws.update(rng_impressions, [[x] for x in new_impressions], value_input_option='USER_ENTERED')
             
             if date_col and new_dates:
                 rng_dates = f"{_col_letter(date_col)}{start}:{_col_letter(date_col)}{end}"
-                ws.update(rng_dates, [[x] for x in new_dates])
+                ws.update(rng_dates, [[x] for x in new_dates], value_input_option='USER_ENTERED')
 
             # Update "last changed" column if present
             if last_changed_col:
@@ -833,7 +834,7 @@ async def update_sheet_views_likes_comments(
                 for i in range(0, end - start + 1):
                     last_changed_out.append(now_human if changed_rows[i] else (existing_changed[i] or ""))
                 rng_changed = f"{_col_letter(last_changed_col)}{start}:{_col_letter(last_changed_col)}{end}"
-                ws.update(rng_changed, [[x] for x in last_changed_out])
+                ws.update(rng_changed, [[x] for x in last_changed_out], value_input_option='USER_ENTERED')
         except Exception as e:
             _log(f"Error writing to sheet: {e}")
             raise
