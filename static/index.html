@@ -4,90 +4,108 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kalshi Internal - Impressions Tool</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css?v=4">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>KALSHI INTERNAL</h1>
+            <h1>Kalshi Internal</h1>
             <p class="subtitle">Impressions Tool - TikTok & Instagram Stats</p>
             <p class="credit">Built by anahad</p>
         </header>
 
         <div id="statusBar" class="status-bar hidden">
             <div class="status-content">
-                <span id="statusIcon">ℹ️</span>
+                <span id="statusIcon"></span>
                 <span id="statusMessage">Ready</span>
             </div>
             <button id="dismissStatus" class="dismiss-btn" onclick="document.getElementById('statusBar').classList.add('hidden')">&times;</button>
         </div>
 
-        <div class="card">
-            <h2>📁 Step 1: Google Credentials</h2>
-            <div class="form-group">
-                <div id="dropZone" class="drop-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('fileInput').click()">
-                    <div id="dropContent" class="drop-zone-content">
-                        <p class="drop-text">Click to upload <strong>credentials.json</strong> or drag & drop</p>
+        <div class="content-grid">
+            <!-- Column 1: Credentials -->
+            <div class="card">
+                <h2>Step 1: Google Credentials</h2>
+                <div class="form-group">
+                    <div id="dropZone" class="drop-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('fileInput').click()">
+                        <div id="dropContent" class="drop-zone-content">
+                            <p class="drop-text">Click or drag credentials.json</p>
+                        </div>
+                        <div id="fileInfo" class="file-info hidden">
+                            <span id="fileName"></span>
+                            <button onclick="clearFile(); event.stopPropagation();" class="clear-btn">&times;</button>
+                        </div>
                     </div>
-                    <div id="fileInfo" class="file-info hidden">
-                        <span id="fileName"></span>
-                        <button onclick="clearFile(); event.stopPropagation();" class="clear-btn">&times;</button>
+                    <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
+                </div>
+                <button id="connectSheetsBtn" class="btn btn-primary btn-large" disabled>Connect to Google Sheets</button>
+            </div>
+
+            <!-- Column 2: Configuration -->
+            <div class="card">
+                <h2>Step 2: Sheet Configuration</h2>
+                <div class="form-group">
+                    <label>Google Sheet URL</label>
+                    <input type="text" id="spreadsheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="input-field">
+                </div>
+                <div class="form-group">
+                    <label>Worksheet Name</label>
+                    <input type="text" id="worksheetName" value="Sheet1" class="input-field">
+                </div>
+                <button id="saveDefaultsBtn" class="btn btn-secondary" style="width: 100%;">Save as Defaults</button>
+                
+                <div style="margin-top: 1rem;">
+                    <div class="collapsible-header" onclick="toggleAdvanced()">
+                        <span style="font-size: 0.9rem; font-weight: 500;">Advanced Options</span>
+                        <span id="advancedToggle" class="toggle-icon">▼</span>
+                    </div>
+                    <div id="advancedOptions" class="advanced-options hidden">
+                        <div class="form-group">
+                            <label>Disable Columns</label>
+                            <input type="text" id="disableColumns" placeholder="e.g., name,impressions" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Row Range</label>
+                            <input type="text" id="rowRange" placeholder="e.g., 2:10" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="overrideData" checked>
+                                Override existing data
+                            </label>
+                        </div>
                     </div>
                 </div>
-                <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
-                <button id="browseBtn" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">Browse Files</button>
             </div>
-            <button id="connectSheetsBtn" class="btn btn-primary" disabled>Connect to Google Sheets</button>
-        </div>
 
-        <div class="card">
-            <h2>📋 Step 2: Sheet Configuration</h2>
-            <div class="form-group">
-                <label><span class="label-text">Google Sheet URL</span></label>
-                <input type="text" id="spreadsheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="input-field">
-            </div>
-            <div class="form-group">
-                <label><span class="label-text">Worksheet Name</span></label>
-                <input type="text" id="worksheetName" value="Sheet1" class="input-field">
-            </div>
-            <button id="saveDefaultsBtn" class="btn btn-secondary">Save as Defaults</button>
-        </div>
-
-        <div class="card">
-            <div class="collapsible-header" onclick="toggleAdvanced()">
-                <h2>⚙️ Advanced Options</h2>
-                <span id="advancedToggle" class="toggle-icon">▼</span>
-            </div>
-            <div id="advancedOptions" class="advanced-options hidden">
-                <div class="form-group">
-                    <label><span class="label-text">Disable Columns</span></label>
-                    <input type="text" id="disableColumns" placeholder="e.g., name,impressions" class="input-field">
-                </div>
-                <div class="form-group">
-                    <label><span class="label-text">Row Range</span></label>
-                    <input type="text" id="rowRange" placeholder="e.g., 2:10" class="input-field">
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="overrideData" checked>
-                        Override existing data
-                    </label>
+            <!-- Column 3: Run -->
+            <div class="card">
+                <h2>Step 3: Run Update</h2>
+                <p style="font-size: 0.9rem; color: #6b7280; margin-bottom: 1.5rem;">Click the button below to fetch stats and update your Google Sheet.</p>
+                
+                <button id="runUpdateBtn" class="btn btn-primary btn-large">
+                    <span id="runBtnText">Run Update</span>
+                    <span id="runBtnSpinner" class="spinner hidden"></span>
+                </button>
+                
+                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                    <p style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem;">Requirements:</p>
+                    <ul style="font-size: 0.85rem; color: #6b7280; margin-left: 1.25rem;">
+                        <li>Sheet must have a URL column</li>
+                        <li>URLs should be TikTok or Instagram</li>
+                        <li>First row should contain headers</li>
+                    </ul>
                 </div>
             </div>
-        </div>
-
-        <div class="card">
-            <button id="runUpdateBtn" class="btn btn-primary btn-large">
-                <span id="runBtnText">🚀 RUN UPDATE</span>
-                <span id="runBtnSpinner" class="spinner hidden"></span>
-            </button>
         </div>
 
         <footer>
             <p>Kalshi Internal | Built by anahad | <a href="/docs" target="_blank">API Docs</a></p>
         </footer>
     </div>
-    <script src="/static/script.js?v=3"></script>
+    <script src="/static/script.js?v=4"></script>
 </body>
 </html>
-
