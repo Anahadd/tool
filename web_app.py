@@ -119,7 +119,8 @@ async def oauth_start(file_id: str):
         
         authorization_url, state = flow.authorization_url(
             access_type='offline',
-            include_granted_scopes='true'
+            include_granted_scopes='true',
+            prompt='consent'  # Force consent screen every time to ensure callback executes
         )
         
         # Store the flow state and file_id for callback

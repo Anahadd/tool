@@ -219,6 +219,11 @@ label {
     background: #eff6ff;
 }
 
+.status-bar.warning {
+    border-left: 3px solid #f59e0b;
+    background: #fffbeb;
+}
+
 .status-content {
     flex: 1;
     display: flex;

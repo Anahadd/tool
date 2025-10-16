@@ -25,7 +25,7 @@ function showStatus(message, type = 'info') {
         'success': '✓',
         'error': '✗',
         'warning': '⚠',
-        'info': 'ℹ️'
+        'info': 'ℹ'
     };
     
     statusIcon.textContent = icons[type] || 'ℹ️';
@@ -124,6 +124,8 @@ function setupOAuthMessageListener() {
         
         if (event.data.type === 'oauth-success') {
             showStatus('✓ Successfully connected to Google Sheets!', 'success');
+            // Enable the run button since we're now authenticated
+            document.getElementById('runUpdateBtn').disabled = false;
         } else if (event.data.type === 'oauth-error') {
             showStatus('Connection failed: ' + event.data.error, 'error');
         }
@@ -159,7 +161,22 @@ async function connectSheets() {
             if (!popup) {
                 showStatus('Popup blocked! Please allow popups for this site.', 'error');
             } else {
-                showStatus('Complete authentication in the popup window...', 'info');
+                showStatus('Waiting for authentication...', 'info');
+                
+                // Poll to check if popup closed without completing auth
+                const checkClosed = setInterval(() => {
+                    if (popup.closed) {
+                        clearInterval(checkClosed);
+                        // Give a moment for the message to arrive
+                        setTimeout(() => {
+                            // If we haven't received a success message, show warning
+                            const statusBar = document.getElementById('statusBar');
+                            if (!statusBar.classList.contains('success')) {
+                                showStatus('Authentication window closed. Please try again and make sure to complete the process.', 'warning');
+                            }
+                        }, 500);
+                    }
+                }, 500);
             }
         } else {
             showStatus('Failed to start authentication', 'error');
