@@ -17,35 +17,14 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    max-width: 1400px;
+    max-width: 1600px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 2.5rem;
 }
 
-/* Header */
+/* Header - Hidden */
 header {
-    text-align: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-header h1 {
-    font-size: 1.75rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    margin-bottom: 0.25rem;
-}
-
-.subtitle {
-    font-size: 0.95rem;
-    color: #6b7280;
-}
-
-.credit {
-    font-size: 0.8rem;
-    color: #9ca3af;
-    margin-top: 0.25rem;
+    display: none;
 }
 
 /* Main Content Grid */
@@ -53,8 +32,9 @@ header h1 {
     flex: 1;
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 1.5rem;
+    gap: 2rem;
     overflow: hidden;
+    align-items: start;
 }
 
 /* Cards */
@@ -62,15 +42,17 @@ header h1 {
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: 2rem;
     display: flex;
     flex-direction: column;
+    max-height: 100%;
+    overflow-y: auto;
 }
 
 .card h2 {
-    font-size: 1rem;
+    font-size: 1.15rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     color: #000000;
 }
 
@@ -89,10 +71,10 @@ label {
 
 .input-field {
     width: 100%;
-    padding: 0.65rem 0.85rem;
+    padding: 0.75rem 1rem;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     transition: all 0.15s;
     font-family: inherit;
 }
@@ -109,10 +91,10 @@ label {
 
 /* Buttons */
 .btn {
-    padding: 0.65rem 1.25rem;
+    padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s;
@@ -145,8 +127,8 @@ label {
 
 .btn-large {
     width: 100%;
-    padding: 0.85rem;
-    font-size: 1rem;
+    padding: 1rem;
+    font-size: 1.05rem;
     font-weight: 600;
 }
 
@@ -326,23 +308,9 @@ label {
     text-decoration: underline;
 }
 
-/* Footer */
+/* Footer - Hidden */
 footer {
-    text-align: center;
-    padding-top: 1rem;
-    border-top: 1px solid #e5e7eb;
-    font-size: 0.8rem;
-    color: #6b7280;
-    margin-top: 1rem;
-}
-
-footer a {
-    color: #000000;
-    text-decoration: none;
-}
-
-footer a:hover {
-    text-decoration: underline;
+    display: none;
 }
 
 /* Responsive */
