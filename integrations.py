@@ -114,14 +114,14 @@ async def run_tiktok(urls, show_progress=False):
                         if isinstance(result, Exception):
                             url = batch[idx]
                             _log(f"Warning: TikTok fetch failed for {url}: {result}")
-                            all_results.append((url, "", "", "", f"error:{type(result).__name__}"))
+                            all_results.append((url, "", "", "", "", f"error:{type(result).__name__}"))
                         else:
                             all_results.append(result)
                 except Exception as e:
                     _log(f"Error processing TikTok batch {i//TIKTOK_BATCH_SIZE + 1}: {e}")
                     # Add error results for all URLs in failed batch
                     for url in batch:
-                        all_results.append((url, "", "", "", f"batch_error:{type(e).__name__}"))
+                        all_results.append((url, "", "", "", "", f"batch_error:{type(e).__name__}"))
                 
                 # Configurable delay between batches to manage rate limits
                 if i + TIKTOK_BATCH_SIZE < total:
@@ -132,7 +132,7 @@ async def run_tiktok(urls, show_progress=False):
     except Exception as e:
         _log(f"Fatal error initializing TikTok API: {e}")
         # Return error results for all URLs
-        return [(url, "", "", "", f"fatal:{type(e).__name__}") for url in urls]
+        return [(url, "", "", "", "", f"fatal:{type(e).__name__}") for url in urls]
     
     return all_results
 
@@ -552,9 +552,9 @@ async def update_sheet_views_likes_comments(
             results = await run_tiktok(tt_urls_unique, show_progress=True)
             
             success_count = 0
-            for (u, views, likes, comments, status) in results:
+            for (u, views, likes, comments, post_date, status) in results:
                 if status == "ok":
-                    tt_stats_by_url[u] = {"views": views, "likes": likes, "comments": comments}
+                    tt_stats_by_url[u] = {"views": views, "likes": likes, "comments": comments, "date": post_date}
                     success_count += 1
             
             _log(f"TikTok: {success_count}/{len(tt_urls_unique)} successful")
@@ -574,7 +574,7 @@ async def update_sheet_views_likes_comments(
             items = run_instagram(ig_urls_unique, show_progress=True)
             
             for item in items:
-                plays, likes, comments = igmod.extract_impressions(item)
+                plays, likes, comments, post_date = igmod.extract_impressions(item)
                 username = igmod.extract_username(item)
                 src = item.get("inputUrl") or item.get("url") or ""
                 cu = igmod.canonicalize_instagram_url(src) if src else ""
@@ -584,6 +584,7 @@ async def update_sheet_views_likes_comments(
                         "likes": str(likes) if isinstance(likes, int) else "",
                         "comments": str(comments) if isinstance(comments, int) else "",
                         "username": username,
+                        "date": post_date,
                     }
                     # Debug: log successful username extraction
                     if username:
@@ -613,19 +614,6 @@ async def update_sheet_views_likes_comments(
         changed_rows: List[bool] = []
         unsupported_count = 0
         
-        # Get today's date in MM/DD/YYYY format (without leading zeros)
-        # Use UTC for consistency since Railway servers are in UTC
-        now = datetime.now(timezone.utc)
-        try:
-            # Try Unix-style format specifiers (removes leading zeros)
-            today_date = now.strftime("%-m/%-d/%Y")
-        except Exception:
-            # Fallback for systems that don't support %-m/%-d (like Windows)
-            month = str(now.month)
-            day = str(now.day)
-            year = str(now.year)
-            today_date = f"{month}/{day}/{year}"
-        
         # Process only the rows in the specified range
         for i, r in enumerate(range(process_start_idx + 1, process_end_idx + 1)):
             u = row_to_url.get(r, "")
@@ -653,6 +641,9 @@ async def update_sheet_views_likes_comments(
                 "facebook.com", "fb.com", "fb.watch",
                 "twitter.com", "x.com"
             ])
+            
+            # Variables to store post date
+            post_date = ""
             
             # If unsupported platform, keep all existing data and skip processing
             if is_unsupported:
@@ -701,6 +692,8 @@ async def update_sheet_views_likes_comments(
                     if comments_col:
                         new_c = stats.get("comments", c)
                         c = new_c if (override or _is_empty(orig_c)) else orig_c
+                    # Get post date from TikTok stats
+                    post_date = stats.get("date", "")
             elif "instagram.com" in host:
                 # Extract account name from URL if not already present
                 if name_col and not n:
@@ -724,6 +717,8 @@ async def update_sheet_views_likes_comments(
                     if comments_col:
                         new_c = stats.get("comments", c)
                         c = new_c if (override or _is_empty(orig_c)) else orig_c
+                    # Get post date from Instagram stats
+                    post_date = stats.get("date", "")
             else:
                 # For other platforms (YouTube, Facebook, etc.), extract from URL
                 if name_col and not n:
@@ -763,11 +758,15 @@ async def update_sheet_views_likes_comments(
             if impressions_col:
                 new_impressions.append(imp)
             
-            # Handle date column - add today's date if empty or if override is True
+            # Handle date column - use post date from video/post
             if date_col:
                 orig_date = existing_dates[i] if i < len(existing_dates) else ""
-                # Only update date if override=True or original is empty
-                final_date = today_date if (override or _is_empty(orig_date)) else orig_date
+                # Use the post_date from the video/post data
+                # Only update if we have a post_date and (override=True or original is empty)
+                if post_date and (override or _is_empty(orig_date)):
+                    final_date = post_date
+                else:
+                    final_date = orig_date
                 new_dates.append(final_date)
             
             was_changed = False

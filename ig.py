@@ -102,10 +102,11 @@ def extract_username(item: dict) -> str:
 
 def extract_impressions(item: dict):
     """
-    Returns (plays, likes, comments) where any can be None if unavailable/hidden.
+    Returns (plays, likes, comments, post_date) where any can be None if unavailable/hidden.
     - plays: prefers top-level video counts; for Sidecar, also checks child video posts.
     - likes: -1 means hidden -> treat as None; try known fallbacks.
     - comments: uses commentsCount, then edge dicts, then latestComments length.
+    - post_date: timestamp when the post was created, formatted as MM/DD/YYYY
     """
     plays_candidates = [
         item.get("videoPlayCount"),
@@ -136,7 +137,41 @@ def extract_impressions(item: dict):
     if comments is None:
         comments = 0  # reasonable default
 
-    return plays, likes, comments
+    # Extract post date
+    post_date = ""
+    timestamp_candidates = [
+        item.get("timestamp"),
+        item.get("timestampParsed"),
+        item.get("taken_at_timestamp"),
+    ]
+    
+    for ts in timestamp_candidates:
+        if ts:
+            try:
+                from datetime import datetime
+                # Handle both Unix timestamps and ISO strings
+                if isinstance(ts, str):
+                    # Try parsing ISO format first
+                    try:
+                        dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                    except:
+                        # Try as Unix timestamp string
+                        dt = datetime.fromtimestamp(int(ts))
+                elif isinstance(ts, (int, float)):
+                    dt = datetime.fromtimestamp(ts)
+                else:
+                    continue
+                
+                # Format as MM/DD/YYYY
+                month = str(dt.month)
+                day = str(dt.day)
+                year = str(dt.year)
+                post_date = f"{month}/{day}/{year}"
+                break
+            except Exception:
+                continue
+
+    return plays, likes, comments, post_date
 
 
 def fmt(n):

@@ -108,7 +108,7 @@ def tiktok_video_links(urls):
 async def fetch_stats(api: TikTokApi, url: str, max_retries: int = 2):
     match = VID_RE.search(urlparse(url).path)
     if not match:
-        return (url, "", "", "", "no_video_id")
+        return (url, "", "", "", "", "no_video_id")
     video_id = match.group(1)
 
     def to_int_str(value):
@@ -121,6 +121,20 @@ async def fetch_stats(api: TikTokApi, url: str, max_retries: int = 2):
             return str(int(value))
         except Exception:
             return "0"
+    
+    def format_date(timestamp):
+        """Convert Unix timestamp to MM/DD/YYYY format"""
+        try:
+            if timestamp:
+                from datetime import datetime
+                dt = datetime.fromtimestamp(int(timestamp))
+                month = str(dt.month)
+                day = str(dt.day)
+                year = str(dt.year)
+                return f"{month}/{day}/{year}"
+        except Exception:
+            pass
+        return ""
 
     def err_status(e: Exception) -> str:
         msg = str(e).replace(",", ";").replace("\n", " ").strip()
@@ -138,11 +152,15 @@ async def fetch_stats(api: TikTokApi, url: str, max_retries: int = 2):
                 # Check if we actually have view count data
                 play_count = stats.get("playCount")
                 if play_count is not None or attempt == max_retries:
+                    # Extract creation date if available
+                    create_time = info.get("createTime") or info.get("createtime") or ""
+                    post_date = format_date(create_time)
                     return (
                         url,
                         to_int_str(play_count),
                         to_int_str(stats.get("diggCount")),
                         to_int_str(stats.get("commentCount")),
+                        post_date,
                         "ok",
                     )
         except Exception as e_id:
@@ -155,24 +173,28 @@ async def fetch_stats(api: TikTokApi, url: str, max_retries: int = 2):
                     stats = info.get("stats", {})
                     play_count = stats.get("playCount")
                     if play_count is not None or attempt == max_retries:
+                        # Extract creation date if available
+                        create_time = info.get("createTime") or info.get("createtime") or ""
+                        post_date = format_date(create_time)
                         return (
                             url,
                             to_int_str(play_count),
                             to_int_str(stats.get("diggCount")),
                             to_int_str(stats.get("commentCount")),
+                            post_date,
                             "ok",
                         )
             except Exception as e_url:
                 # If this is the last attempt, return the error
                 if attempt == max_retries:
-                    return (url, "", "", "", err_status(e_url))
+                    return (url, "", "", "", "", err_status(e_url))
         
         # Wait a bit before retrying (exponential backoff)
         if attempt < max_retries:
             await asyncio.sleep(0.5 * (2 ** attempt))
     
     # Fallback if somehow we get here
-    return (url, "", "", "", "no_data")
+    return (url, "", "", "", "", "no_data")
 
 async def main():
     all_https = load_https_links("url.txt")
@@ -190,7 +212,7 @@ async def main():
         )
         results = await asyncio.gather(*(fetch_stats(api, u) for u in tiktok_urls))
 
-    print("url,views,likes,comments,status")
+    print("url,views,likes,comments,post_date,status")
     for row in results:
         print(",".join(row))
 
@@ -280,7 +302,7 @@ async def update_sheet_impressions():
                 browser=os.getenv("TIKTOK_BROWSER", "chromium"),
             )
             results = await asyncio.gather(*(fetch_stats(api, u) for u in tt_urls_unique))
-        for (u, views, _likes, _comments, status) in results:
+        for (u, views, _likes, _comments, _post_date, status) in results:
             tt_views_by_url[u] = views if status == "ok" else ""
 
     ig_urls_unique = []
