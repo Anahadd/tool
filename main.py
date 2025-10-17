@@ -125,13 +125,16 @@ async def fetch_stats(api: TikTokApi, url: str, max_retries: int = 2):
     def format_date(timestamp):
         """Convert Unix timestamp to MM/DD/YYYY format"""
         try:
-            if timestamp:
+            if timestamp and str(timestamp) != '0':
                 from datetime import datetime
-                dt = datetime.fromtimestamp(int(timestamp))
-                month = str(dt.month)
-                day = str(dt.day)
-                year = str(dt.year)
-                return f"{month}/{day}/{year}"
+                ts_int = int(timestamp)
+                # Validate timestamp is reasonable (after year 2000, before year 2100)
+                if ts_int > 946684800 and ts_int < 4102444800:
+                    dt = datetime.fromtimestamp(ts_int)
+                    month = str(dt.month)
+                    day = str(dt.day)
+                    year = str(dt.year)
+                    return f"{month}/{day}/{year}"
         except Exception:
             pass
         return ""
