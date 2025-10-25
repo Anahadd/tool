@@ -877,6 +877,12 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Make functions globally accessible for onclick handlers
+window.runUpdate = runUpdate;
+window.deleteSelected = deleteSelected;
+window.showAddSheetModal = showAddSheetModal;
+window.editSheet = editSheet;
+
 // OAuth callback listener
 window.addEventListener('message', async (event) => {
     if (event.data.type === 'oauth_success') {
