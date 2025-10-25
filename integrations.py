@@ -6,6 +6,7 @@ import sys
 import time
 import main as tiktokmod
 import ig as igmod
+import youtube as ytmod
 from apify_client import ApifyClient
 from TikTokApi import TikTokApi
 import gspread
@@ -66,6 +67,7 @@ def _progress(current: int, total: int, prefix: str = "Progress"):
 
 def classify_urls(all_urls):
     tiktok_urls = tiktokmod.tiktok_video_links(all_urls)
+    youtube_urls = ytmod.youtube_video_links(all_urls)
 
     instagram_urls, seen = [], set()
     for u in all_urls:
@@ -77,7 +79,7 @@ def classify_urls(all_urls):
                 seen.add(cu)
 
     
-    return tiktok_urls, instagram_urls
+    return tiktok_urls, youtube_urls, instagram_urls
 
 
 async def run_tiktok(urls, show_progress=False):
@@ -137,6 +139,37 @@ async def run_tiktok(urls, show_progress=False):
         return [(url, "", "", "", "", f"fatal:{type(e).__name__}") for url in urls]
     
     return all_results
+
+
+def run_youtube(urls, show_progress=False):
+    """Fetch YouTube stats using YouTube Data API v3."""
+    if not urls:
+        return []
+    
+    api_key = os.getenv("YOUTUBE_API_KEY", "")
+    if not api_key:
+        _log("Warning: YOUTUBE_API_KEY not set, skipping YouTube videos")
+        return [(url, "", "", "", "", "no_api_key") for url in urls]
+    
+    results = []
+    total = len(urls)
+    
+    for i, url in enumerate(urls):
+        if show_progress and i % 10 == 0:
+            _progress(i, total, "Fetching YouTube")
+        
+        try:
+            url_result, views, likes, comments, status = ytmod.fetch_stats_by_url(url, api_key=api_key)
+            # Return empty date for consistency with TikTok format (url, views, likes, comments, date, status)
+            results.append((url, views, likes, comments, "", status))
+        except Exception as e:
+            _log(f"Warning: YouTube fetch failed for {url}: {e}")
+            results.append((url, "", "", "", "", f"error:{type(e).__name__}"))
+    
+    if show_progress:
+        _progress(total, total, "Fetching YouTube")
+    
+    return results
 
 
 def run_instagram(urls, show_progress=False):
@@ -518,6 +551,7 @@ async def update_sheet_views_likes_comments(
         # Gather rows and classify URLs (use already-fetched values)
         row_to_url: Dict[int, str] = {}
         tiktok_rows: List[int] = []
+        youtube_rows: List[int] = []
         instagram_rows: List[int] = []
         raw_urls: List[str] = []
 
@@ -536,11 +570,13 @@ async def update_sheet_views_likes_comments(
                 expanded = tiktokmod.expand_tiktok_url(u)
                 if tiktokmod.VID_RE.search(urlparse(expanded).path):
                     tiktok_rows.append(r)
+            elif "youtube.com" in host or "youtu.be" in host:
+                youtube_rows.append(r)
             elif "instagram.com" in host:
                 instagram_rows.append(r)
 
         total_urls = len(raw_urls)
-        _log(f"Found {total_urls} URLs: {len(tiktok_rows)} TikTok, {len(instagram_rows)} Instagram")
+        _log(f"Found {total_urls} URLs: {len(tiktok_rows)} TikTok, {len(youtube_rows)} YouTube, {len(instagram_rows)} Instagram")
 
         if total_urls == 0:
             _log("No URLs found in sheet")
@@ -565,6 +601,26 @@ async def update_sheet_views_likes_comments(
                     success_count += 1
             
             _log(f"TikTok: {success_count}/{len(tt_urls_unique)} successful")
+
+        # Fetch YouTube stats
+        yt_stats_by_url: Dict[str, Dict[str, str]] = {}
+        yt_urls_unique = ytmod.youtube_video_links(raw_urls)
+        if yt_urls_unique:
+            _log(f"Fetching {len(yt_urls_unique)} YouTube videos...")
+            try:
+                results = run_youtube(yt_urls_unique, show_progress=True)
+            except Exception as e:
+                _log(f"Warning: YouTube fetch failed: {type(e).__name__}: {e}")
+                _log("Continuing with other platforms...")
+                results = []
+            
+            success_count = 0
+            for (u, views, likes, comments, post_date, status) in results:
+                if status == "ok":
+                    yt_stats_by_url[u] = {"views": views, "likes": likes, "comments": comments, "date": post_date}
+                    success_count += 1
+            
+            _log(f"YouTube: {success_count}/{len(yt_urls_unique)} successful")
 
         # Fetch Instagram stats with progress
         ig_stats_by_url: Dict[str, Dict[str, str]] = {}
@@ -641,10 +697,9 @@ async def update_sheet_views_likes_comments(
             def _is_empty(val: str) -> bool:
                 return not (val or "").strip()
             
-            # Check if URL is from an unsupported platform (YouTube, Facebook, X/Twitter)
+            # Check if URL is from an unsupported platform (Facebook, X/Twitter)
             host = (urlparse(u).netloc or "").lower()
             is_unsupported = any(platform in host for platform in [
-                "youtube.com", "youtu.be", 
                 "facebook.com", "fb.com", "fb.watch",
                 "twitter.com", "x.com"
             ])
@@ -700,6 +755,28 @@ async def update_sheet_views_likes_comments(
                         new_c = stats.get("comments", c)
                         c = new_c if (override or _is_empty(orig_c)) else orig_c
                     # Get post date from TikTok stats
+                    post_date = stats.get("date", "")
+            # For YouTube, extract channel and fetch stats
+            elif "youtube.com" in host or "youtu.be" in host:
+                # Canonicalize YouTube URL
+                canonical_yt_url = ytmod.canonicalize_youtube_url(u)
+                
+                # Extract channel from URL if not already present
+                if channel_col and not ch:
+                    ch = "YouTube"
+                
+                stats = yt_stats_by_url.get(canonical_yt_url) if canonical_yt_url else None
+                if stats:
+                    if views_col:
+                        new_v = stats.get("views", v)
+                        v = new_v if (override or _is_empty(orig_v)) else orig_v
+                    if likes_col:
+                        new_l = stats.get("likes", l)
+                        l = new_l if (override or _is_empty(orig_l)) else orig_l
+                    if comments_col:
+                        new_c = stats.get("comments", c)
+                        c = new_c if (override or _is_empty(orig_c)) else orig_c
+                    # Get post date from YouTube stats
                     post_date = stats.get("date", "")
             elif "instagram.com" in host:
                 # Extract account name from URL if not already present
