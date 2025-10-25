@@ -33,10 +33,18 @@ def clean_url(url: str) -> str:
     
     return url
 
-def expand_tiktok_url(url: str, timeout: int = 10) -> str:
+def expand_tiktok_url(url: str, timeout: int = 10, max_retries: int = 2) -> str:
     """
     Expand TikTok short URLs (e.g., tiktok.com/t/XXX) to full URLs.
     Returns the expanded URL if successful, otherwise returns the original URL.
+    
+    Args:
+        url: The URL to expand
+        timeout: Request timeout in seconds (default: 10)
+        max_retries: Number of retry attempts for failed expansions (default: 2)
+    
+    Returns:
+        Expanded URL if successful, original URL otherwise
     """
     try:
         parsed = urlparse(url)
@@ -46,7 +54,7 @@ def expand_tiktok_url(url: str, timeout: int = 10) -> str:
         if "tiktok.com" in host and parsed.path.startswith("/t/"):
             # Use proper headers to mimic a real browser request
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate',
@@ -54,25 +62,45 @@ def expand_tiktok_url(url: str, timeout: int = 10) -> str:
                 'Upgrade-Insecure-Requests': '1'
             }
             
-            # Try GET request first (more reliable than HEAD for TikTok)
-            try:
-                response = requests.get(url, allow_redirects=True, timeout=timeout, headers=headers)
-                expanded_url = response.url
-            except Exception:
-                # Fallback to HEAD request if GET fails
-                response = requests.head(url, allow_redirects=True, timeout=timeout, headers=headers)
-                expanded_url = response.url
-            
-            # Verify the expanded URL is a valid TikTok video URL
-            if VID_RE.search(urlparse(expanded_url).path):
-                return expanded_url
+            # Retry logic for transient failures
+            last_exception = None
+            for attempt in range(max_retries + 1):
+                try:
+                    # Try GET request first (more reliable than HEAD for TikTok)
+                    response = requests.get(url, allow_redirects=True, timeout=timeout, headers=headers)
+                    expanded_url = response.url
+                    
+                    # Verify the expanded URL is a valid TikTok video URL
+                    if VID_RE.search(urlparse(expanded_url).path):
+                        return expanded_url
+                    else:
+                        # If expansion didn't give us a video URL, try HEAD as fallback
+                        response = requests.head(url, allow_redirects=True, timeout=timeout, headers=headers)
+                        expanded_url = response.url
+                        if VID_RE.search(urlparse(expanded_url).path):
+                            return expanded_url
+                    
+                    break  # Success, exit retry loop
+                    
+                except (requests.Timeout, requests.ConnectionError) as e:
+                    last_exception = e
+                    if attempt < max_retries:
+                        # Brief wait before retry
+                        import time
+                        time.sleep(0.5 * (attempt + 1))  # Exponential backoff: 0.5s, 1s
+                        continue
+                    else:
+                        raise  # Re-raise on final attempt
+                except Exception as e:
+                    # Non-retryable error, fail immediately
+                    raise
         
         # Return original URL if not a short URL or expansion failed
         return url
     except Exception as e:
         # Log error for debugging (to stderr so it doesn't interfere with output)
         import sys
-        print(f"Warning: Failed to expand URL {url}: {e}", file=sys.stderr)
+        print(f"Warning: Failed to expand URL {url}: {type(e).__name__}: {e}", file=sys.stderr)
         # If anything goes wrong, return the original URL
         return url
 

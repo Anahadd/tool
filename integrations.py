@@ -551,7 +551,12 @@ async def update_sheet_views_likes_comments(
         tt_urls_unique = tiktokmod.tiktok_video_links(raw_urls)
         if tt_urls_unique:
             _log(f"Fetching {len(tt_urls_unique)} TikTok videos...")
-            results = await run_tiktok(tt_urls_unique, show_progress=True)
+            try:
+                results = await run_tiktok(tt_urls_unique, show_progress=True)
+            except Exception as e:
+                _log(f"Warning: TikTok fetch failed: {type(e).__name__}: {e}")
+                _log("Continuing with other platforms...")
+                results = []  # Continue with empty results
             
             success_count = 0
             for (u, views, likes, comments, post_date, status) in results:
