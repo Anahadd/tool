@@ -11,8 +11,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN python -m playwright install chromium
+
+# Install dependencies with retry logic and timeout handling
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --timeout 300 --retries 5 -r requirements.txt
+
+# Install Playwright browsers
+RUN python -m playwright install chromium && \
+    python -m playwright install-deps chromium
 
 COPY . .
 
