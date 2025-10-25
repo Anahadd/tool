@@ -264,18 +264,70 @@ async function handleContinueFromSetup() {
         
         await window.firebase.uploadCredentials(setupFile);
         
-        showToast('✓ Credentials saved successfully!', 'success');
+        showToast('Credentials saved! Now connecting to Google Sheets...', 'success');
         
-        // Hide setup page, show dashboard
-        document.getElementById('credentialsSetupPage').classList.add('hidden');
-        document.getElementById('adminDashboard').classList.remove('hidden');
-        
-        // Load user's sheets
-        await loadSheets();
+        // Automatically start OAuth flow
+        await connectToGoogleSheetsOnSetup();
         
     } catch (error) {
         console.error('Upload error:', error);
         showToast(`Upload failed: ${error.message}`, 'error');
+    }
+}
+
+async function connectToGoogleSheetsOnSetup() {
+    try {
+        const idToken = await window.firebase.getIdToken();
+        
+        const response = await fetch('/api/oauth-start', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${idToken}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.auth_url) {
+            const width = 600;
+            const height = 700;
+            const left = (screen.width / 2) - (width / 2);
+            const top = (screen.height / 2) - (height / 2);
+            
+            const popup = window.open(
+                data.auth_url,
+                'Google OAuth',
+                `width=${width},height=${height},left=${left},top=${top}`
+            );
+            
+            // Listen for OAuth completion
+            window.addEventListener('message', async (event) => {
+                if (event.data.type === 'oauth_success') {
+                    showToast('Google Sheets connected! Loading dashboard...', 'success');
+                    
+                    // Now show dashboard
+                    document.getElementById('credentialsSetupPage').classList.add('hidden');
+                    document.getElementById('adminDashboard').classList.remove('hidden');
+                    
+                    // Load user's sheets
+                    await loadSheets();
+                } else if (event.data.type === 'oauth_error') {
+                    showToast(`OAuth failed: ${event.data.message}`, 'error');
+                }
+            }, { once: true });
+            
+            showToast('Complete authorization in the popup window...', 'info');
+        } else {
+            throw new Error(data.message || 'Failed to start OAuth');
+        }
+    } catch (error) {
+        console.error('OAuth error:', error);
+        showToast(`Connection failed: ${error.message}`, 'error');
+        
+        // Still show dashboard even if OAuth fails
+        document.getElementById('credentialsSetupPage').classList.add('hidden');
+        document.getElementById('adminDashboard').classList.remove('hidden');
+        await loadSheets();
     }
 }
 
@@ -286,25 +338,45 @@ async function handleContinueFromSetup() {
 async function loadSheets() {
     try {
         const user = window.firebase.getCurrentUser();
-        if (!user) return;
+        if (!user) {
+            console.log('No user signed in');
+            renderSheets([]);
+            return;
+        }
+        
+        console.log('Loading sheets for user:', user.uid);
         
         const db = window.firebaseDB;
         const sheetsRef = window.firebase.collection(db, 'user_sheets');
-        const q = window.firebase.query(sheetsRef, 
-            window.firebase.where('user_id', '==', user.uid),
-            window.firebase.orderBy('created_at', 'desc')
+        
+        // Query sheets for this user
+        const q = window.firebase.query(
+            sheetsRef, 
+            window.firebase.where('user_id', '==', user.uid)
         );
         
         const querySnapshot = await window.firebase.getDocs(q);
         const sheets = [];
+        
         querySnapshot.forEach((doc) => {
-            sheets.push({ id: doc.id, ...doc.data() });
+            const data = doc.data();
+            sheets.push({ 
+                id: doc.id, 
+                ...data,
+                created_at: data.created_at?.toDate?.() || new Date()
+            });
         });
         
+        // Sort by created_at descending
+        sheets.sort((a, b) => b.created_at - a.created_at);
+        
+        console.log(`Loaded ${sheets.length} sheets`);
         renderSheets(sheets);
+        
     } catch (error) {
         console.error('Error loading sheets:', error);
-        showToast('Failed to load sheets', 'error');
+        showToast(`Failed to load sheets: ${error.message}`, 'error');
+        renderSheets([]);
     }
 }
 
@@ -435,6 +507,8 @@ async function saveSheet() {
             return;
         }
         
+        console.log('Saving sheet:', { name, url, worksheet, user: user.uid });
+        
         const db = window.firebaseDB;
         const sheetData = {
             name,
@@ -446,17 +520,24 @@ async function saveSheet() {
         
         if (currentEditingSheetId) {
             // Update existing
-            await window.firebase.updateDoc(window.firebase.doc(db, 'user_sheets', currentEditingSheetId), sheetData);
+            const docRef = window.firebase.doc(db, 'user_sheets', currentEditingSheetId);
+            await window.firebase.updateDoc(docRef, sheetData);
+            console.log('Sheet updated:', currentEditingSheetId);
             showToast('Sheet updated successfully!', 'success');
         } else {
             // Create new
             sheetData.created_at = new Date();
-            await window.firebase.addDoc(window.firebase.collection(db, 'user_sheets'), sheetData);
+            const docRef = await window.firebase.addDoc(
+                window.firebase.collection(db, 'user_sheets'), 
+                sheetData
+            );
+            console.log('Sheet created:', docRef.id);
             showToast('Sheet added successfully!', 'success');
         }
         
         closeSheetModal();
         await loadSheets();
+        
     } catch (error) {
         console.error('Error saving sheet:', error);
         showToast(`Failed to save: ${error.message}`, 'error');
