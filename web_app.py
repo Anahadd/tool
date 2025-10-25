@@ -326,6 +326,8 @@ async def update_sheets(
     end_row: Optional[int] = Form(None)
 ):
     """Run the sheet update process"""
+    print(f"DEBUG: update_sheets called for user {user_id}")
+    print(f"DEBUG: spreadsheet={spreadsheet}, worksheet={worksheet}")
     try:
         # Get credentials.json from Firebase Storage
         creds_content = await firebase_service.get_credentials(user_id)
@@ -392,16 +394,28 @@ async def update_sheets(
             "success": True,
             "message": "Sheet updated successfully"
         }
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except ValueError as e:
         error_msg = str(e)
         print(f"ERROR: Validation error in update_sheets: {error_msg}")
-        raise HTTPException(status_code=400, detail=error_msg)
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": error_msg}
+        )
     except Exception as e:
         error_msg = str(e)
         print(f"ERROR: Exception in update_sheets: {error_msg}")
+        print(f"ERROR: Exception type: {type(e).__name__}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Update failed: {error_msg}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"Update failed: {error_msg}"}
+        )
 
 
 @app.get("/api/check-apify-token")
