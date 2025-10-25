@@ -469,6 +469,82 @@ body {
     color: #6b7280;
 }
 
+.setup-drop-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: #f9fafb;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.setup-drop-zone:hover {
+    border-color: #4f46e5;
+    background: #fafbff;
+}
+
+.setup-drop-zone.drag-over {
+    border-color: #4f46e5;
+    background: #eef2ff;
+}
+
+.drop-zone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.drop-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #374151;
+    margin: 0;
+}
+
+.drop-subtext {
+    color: #9ca3af;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: #f0fdf4;
+    border-radius: 8px;
+    border: 1px solid #86efac;
+}
+
+.file-info span {
+    color: #15803d;
+    font-weight: 500;
+}
+
+.clear-btn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.clear-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
 /* Status Toast */
 .status-toast {
     position: fixed;

@@ -28,6 +28,41 @@ function setupEventListeners() {
         googleBtn.addEventListener('click', handleGoogleSignIn);
     }
     
+    // Credentials Setup Page
+    const setupDropZone = document.getElementById('setupDropZone');
+    if (setupDropZone) {
+        setupDropZone.addEventListener('click', () => document.getElementById('setupFileInput').click());
+        setupDropZone.addEventListener('dragover', handleSetupDragOver);
+        setupDropZone.addEventListener('dragleave', handleSetupDragLeave);
+        setupDropZone.addEventListener('drop', handleSetupDrop);
+    }
+    
+    const setupFileInput = document.getElementById('setupFileInput');
+    if (setupFileInput) {
+        setupFileInput.addEventListener('change', handleSetupFileSelect);
+    }
+    
+    const setupChooseBtn = document.getElementById('setupChooseFileBtn');
+    if (setupChooseBtn) {
+        setupChooseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('setupFileInput').click();
+        });
+    }
+    
+    const setupClearBtn = document.getElementById('setupClearFileBtn');
+    if (setupClearBtn) {
+        setupClearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearSetupFile();
+        });
+    }
+    
+    const continueBtn = document.getElementById('continueBtn');
+    if (continueBtn) {
+        continueBtn.addEventListener('click', handleContinueFromSetup);
+    }
+    
     // Dashboard buttons
     const addSheetBtn = document.getElementById('addSheetBtn');
     if (addSheetBtn) {
@@ -44,7 +79,33 @@ function setupEventListeners() {
         logoutBtn.addEventListener('click', handleLogout);
     }
     
-    // Settings
+    // Sheet Modal
+    const closeSheetModalBtn = document.getElementById('closeSheetModalBtn');
+    if (closeSheetModalBtn) {
+        closeSheetModalBtn.addEventListener('click', closeSheetModal);
+    }
+    
+    const cancelSheetBtn = document.getElementById('cancelSheetBtn');
+    if (cancelSheetBtn) {
+        cancelSheetBtn.addEventListener('click', closeSheetModal);
+    }
+    
+    const saveSheetBtn = document.getElementById('saveSheetBtn');
+    if (saveSheetBtn) {
+        saveSheetBtn.addEventListener('click', saveSheet);
+    }
+    
+    // Settings Modal
+    const closeSettingsBtn = document.getElementById('closeSettingsModalBtn');
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', closeSettingsModal);
+    }
+    
+    const chooseCredBtn = document.getElementById('chooseCredFileBtn');
+    if (chooseCredBtn) {
+        chooseCredBtn.addEventListener('click', () => document.getElementById('credentialsFile').click());
+    }
+    
     const credFile = document.getElementById('credentialsFile');
     if (credFile) {
         credFile.addEventListener('change', handleCredentialsUpload);
@@ -108,17 +169,114 @@ function showAuthPage() {
 async function onUserSignedIn(user) {
     console.log('User signed in:', user.email);
     
-    // Hide auth page, show dashboard
-    document.getElementById('authPage').classList.add('hidden');
-    document.getElementById('adminDashboard').classList.remove('hidden');
+    // Check if user has credentials
+    const hasCredentials = await window.firebase.hasCredentials();
     
-    showToast(`Welcome back, ${user.email}!`, 'success');
+    if (!hasCredentials) {
+        // First time user - show credentials setup page
+        document.getElementById('authPage').classList.add('hidden');
+        document.getElementById('credentialsSetupPage').classList.remove('hidden');
+        document.getElementById('adminDashboard').classList.add('hidden');
+        showToast('Welcome! Please upload your credentials to continue.', 'info');
+    } else {
+        // Returning user - go straight to dashboard
+        document.getElementById('authPage').classList.add('hidden');
+        document.getElementById('credentialsSetupPage').classList.add('hidden');
+        document.getElementById('adminDashboard').classList.remove('hidden');
+        
+        showToast(`Welcome back, ${user.email}!`, 'success');
+        
+        // Check credentials status
+        await checkCredentialsStatus();
+        
+        // Load user's sheets
+        await loadSheets();
+    }
+}
+
+// ========================================
+// CREDENTIALS SETUP PAGE
+// ========================================
+
+let setupFile = null;
+
+function handleSetupDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('setupDropZone').classList.add('drag-over');
+}
+
+function handleSetupDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('setupDropZone').classList.remove('drag-over');
+}
+
+function handleSetupDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('setupDropZone').classList.remove('drag-over');
     
-    // Check credentials status
-    await checkCredentialsStatus();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        processSetupFile(files[0]);
+    }
+}
+
+function handleSetupFileSelect(e) {
+    const files = e.target.files;
+    if (files.length > 0) {
+        processSetupFile(files[0]);
+    }
+}
+
+function processSetupFile(file) {
+    if (!file.name.endsWith('.json')) {
+        showToast('Please upload a JSON file', 'error');
+        return;
+    }
     
-    // Load user's sheets
-    await loadSheets();
+    setupFile = file;
+    
+    // Update UI
+    document.getElementById('setupDropContent').classList.add('hidden');
+    document.getElementById('setupFileInfo').classList.remove('hidden');
+    document.getElementById('setupFileName').textContent = `✓ ${file.name}`;
+    document.getElementById('continueBtn').disabled = false;
+}
+
+function clearSetupFile() {
+    setupFile = null;
+    document.getElementById('setupDropContent').classList.remove('hidden');
+    document.getElementById('setupFileInfo').classList.add('hidden');
+    document.getElementById('setupFileInput').value = '';
+    document.getElementById('continueBtn').disabled = true;
+}
+
+async function handleContinueFromSetup() {
+    if (!setupFile) {
+        showToast('Please select a file first', 'error');
+        return;
+    }
+    
+    try {
+        showToast('Uploading credentials...', 'info');
+        
+        await window.firebase.uploadCredentials(setupFile);
+        
+        showToast('✓ Credentials saved successfully!', 'success');
+        
+        // Hide setup page, show dashboard
+        document.getElementById('credentialsSetupPage').classList.add('hidden');
+        document.getElementById('adminDashboard').classList.remove('hidden');
+        
+        // Load user's sheets
+        await loadSheets();
+        
+    } catch (error) {
+        console.error('Upload error:', error);
+        showToast(`Upload failed: ${error.message}`, 'error');
+    }
 }
 
 // ========================================
@@ -164,8 +322,8 @@ function renderSheets(sheets) {
                 </td>
             </tr>
         `;
-        return;
-    }
+            return;
+        }
     
     tbody.innerHTML = sheets.map((sheet, index) => `
         <tr data-sheet-id="${sheet.id}">
