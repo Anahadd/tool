@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Impressions Tool - Admin</title>
-    <link rel="stylesheet" href="/static/styles.css?v=9">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=10">
     <!-- Firebase SDK -->
     <script type="module" src="/static/firebase-init.js"></script>
 </head>
@@ -76,7 +73,11 @@
                 <input type="text" id="searchInput" placeholder="Search..." class="search-input">
             </div>
             <button id="addSheetBtn" class="btn btn-primary">
-                <span class="btn-icon">+</span> Add Google Sheets
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Add Google Sheets
             </button>
         </div>
 
@@ -100,7 +101,13 @@
 
         <!-- Bottom Bar -->
         <div class="bottom-bar">
-            <button id="settingsBtn" class="btn btn-secondary">⚙️ Credentials & Settings</button>
+            <button id="settingsBtn" class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M12 1v6m0 6v6m5.2-13.2l-4.2 4.2m-6 6l-4.2 4.2m13.2 0l-4.2-4.2m-6-6l-4.2-4.2"></path>
+                </svg>
+                Credentials & Settings
+            </button>
             <button id="logoutBtn" class="btn btn-text">Logout</button>
         </div>
     </div>
