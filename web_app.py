@@ -48,17 +48,33 @@ oauth_credentials = {}  # user_id -> Credentials object
 # Firebase ID Token verification
 async def verify_firebase_token(authorization: str = Header(None)) -> str:
     """Verify Firebase ID token and return user_id"""
+    print(f"DEBUG: verify_firebase_token called, auth header present: {bool(authorization)}")
+    
     if not authorization or not authorization.startswith("Bearer "):
+        print("ERROR: Missing or invalid authorization header")
         raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
     
     id_token = authorization.split("Bearer ")[1]
+    print(f"DEBUG: ID token length: {len(id_token)}")
+    print(f"DEBUG: ID token preview: {id_token[:50]}...")
     
     try:
         decoded_token = firebase_service.verify_id_token(id_token)
+        print(f"DEBUG: Token decoded: {bool(decoded_token)}")
+        
         if not decoded_token:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return decoded_token['uid']
+            print("ERROR: verify_id_token returned None")
+            raise HTTPException(status_code=401, detail="Invalid token - verification failed")
+        
+        user_id = decoded_token.get('uid')
+        print(f"DEBUG: User ID from token: {user_id}")
+        return user_id
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"ERROR: Token verification exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 

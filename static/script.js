@@ -795,6 +795,11 @@ async function connectToGoogleSheets() {
         showToast('Connecting to Google Sheets...', 'info');
         
         const idToken = await window.firebase.getIdToken();
+        console.log('ID Token retrieved:', idToken ? 'Yes' : 'No');
+        
+        if (!idToken) {
+            throw new Error('Not authenticated - please refresh and sign in again');
+        }
         
         const response = await fetch('/api/oauth-start', {
             method: 'GET',
@@ -803,7 +808,10 @@ async function connectToGoogleSheets() {
             }
         });
         
+        console.log('OAuth start response status:', response.status);
+        
         const data = await response.json();
+        console.log('OAuth start response data:', data);
         
         if (data.auth_url) {
             const width = 600;
@@ -819,7 +827,7 @@ async function connectToGoogleSheets() {
             
             showToast('Complete authorization in popup...', 'info');
         } else {
-            throw new Error('Failed to start OAuth');
+            throw new Error(data.message || 'Failed to start OAuth');
         }
     } catch (error) {
         console.error('Connection error:', error);
