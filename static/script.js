@@ -386,7 +386,7 @@ function renderSheets(sheets) {
     if (sheets.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="empty-state">
+                <td colspan="5" class="empty-state">
                     <p>No Google Sheets added yet</p>
                     <button onclick="showAddSheetModal()" class="btn btn-primary">
                         <span class="btn-icon">+</span> Add Your First Sheet
@@ -402,7 +402,6 @@ function renderSheets(sheets) {
             <td class="checkbox-col">
                 <input type="checkbox" class="sheet-checkbox" data-sheet-id="${sheet.id}">
             </td>
-            <td class="number-col">${index + 1}</td>
             <td class="name-col">
                 <div class="sheet-name">${escapeHtml(sheet.name)}</div>
             </td>
