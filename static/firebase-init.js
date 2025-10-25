@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, addDoc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // Your web app's Firebase configuration
 // NOTE: These are client-side keys and are safe to expose
@@ -54,8 +54,20 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// Export Firebase functions for easy access
+// Export Firestore functions
 window.firebase = {
+    // Firestore functions
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    setDoc,
+    updateDoc,
+    addDoc,
+    query,
+    where,
+    orderBy,
+    
     // Auth functions
     register: async (email, password, username) => {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);

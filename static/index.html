@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kalshi Internal - Impressions Tool</title>
-    <link rel="stylesheet" href="/static/styles.css?v=7">
+    <title>Impressions Tool - Admin</title>
+    <link rel="stylesheet" href="/static/styles.css?v=8">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,177 +12,193 @@
     <script type="module" src="/static/firebase-init.js"></script>
 </head>
 <body>
-    <!-- Authentication Modal -->
-    <div id="authModal" class="auth-modal hidden">
-        <div class="auth-container">
-            <h1 style="text-align: center; margin-bottom: 0.5rem; font-size: 1.75rem; font-weight: 700;">
-                Impressions Tool
-            </h1>
-            <p style="text-align: center; color: #6b7280; font-size: 0.9rem; margin-bottom: 2rem;">
-                TikTok, YouTube & Instagram Analytics
-            </p>
-            
-            <!-- Login Form -->
-            <div id="loginForm" class="auth-form">
-                <h2>Sign In</h2>
-                <form onsubmit="handleLogin(event)">
+    <!-- Auth Pages -->
+    <div id="authPage" class="auth-page hidden">
+        <!-- Sign In Page -->
+        <div id="signInPage" class="auth-container">
+            <div class="auth-card">
+                <h1>Impressions Tool</h1>
+                <p class="subtitle">Sign in to your account</p>
+                
+                <form id="signInForm">
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="email" id="loginEmail" required class="input-field" autocomplete="email">
+                        <input type="email" id="signInEmail" required class="input-field" autocomplete="email">
                     </div>
                     <div class="form-group">
                         <label>Password</label>
-                        <input type="password" id="loginPassword" required class="input-field" autocomplete="current-password">
+                        <input type="password" id="signInPassword" required class="input-field" autocomplete="current-password">
                     </div>
                     <button type="submit" class="btn btn-primary btn-large">Sign In</button>
                 </form>
-                <p>
-                    Don't have an account?
-                    <a href="#" onclick="showRegisterForm(); return false;">Create one</a>
-                </p>
-                <p style="margin-top: 0.5rem;">
-                    <a href="#" onclick="showForgotPassword(); return false;" style="color: #6b7280; font-size: 0.85rem;">Forgot password?</a>
-                </p>
+                
+                <div class="auth-footer">
+                    <p>Don't have an account? <a href="#" onclick="showCreateAccount(); return false;">Create one</a></p>
+                    <p><a href="#" onclick="showForgotPassword(); return false;">Forgot password?</a></p>
+                </div>
             </div>
-            
-            <!-- Register Form -->
-            <div id="registerForm" class="auth-form hidden">
-                <h2>Create Account</h2>
-                <form onsubmit="handleRegister(event)">
+        </div>
+
+        <!-- Create Account Page -->
+        <div id="createAccountPage" class="auth-container hidden">
+            <div class="auth-card">
+                <h1>Impressions Tool</h1>
+                <p class="subtitle">Create your account</p>
+                
+                <form id="createAccountForm">
                     <div class="form-group">
                         <label>Username</label>
-                        <input type="text" id="registerUsername" required class="input-field" autocomplete="username">
+                        <input type="text" id="createUsername" required class="input-field" autocomplete="username">
                     </div>
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="email" id="registerEmail" required class="input-field" autocomplete="email">
+                        <input type="email" id="createEmail" required class="input-field" autocomplete="email">
                     </div>
                     <div class="form-group">
                         <label>Password</label>
-                        <input type="password" id="registerPassword" required minlength="6" class="input-field" autocomplete="new-password">
-                        <small style="color: #6b7280; font-size: 0.85rem;">Minimum 6 characters</small>
+                        <input type="password" id="createPassword" required minlength="6" class="input-field" autocomplete="new-password">
+                        <small>Minimum 6 characters</small>
                     </div>
                     <button type="submit" class="btn btn-primary btn-large">Create Account</button>
                 </form>
-                <p>
-                    Already have an account?
-                    <a href="#" onclick="showLoginForm(); return false;">Sign in</a>
-                </p>
+                
+                <div class="auth-footer">
+                    <p>Already have an account? <a href="#" onclick="showSignIn(); return false;">Sign in</a></p>
+                </div>
             </div>
-            
-            <!-- Forgot Password Form -->
-            <div id="forgotPasswordForm" class="auth-form hidden">
-                <h2>Reset Password</h2>
-                <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 1.5rem; text-align: center;">
-                    Enter your email to receive a reset link
-                </p>
-                <form onsubmit="handleForgotPassword(event)">
+        </div>
+
+        <!-- Forgot Password Page -->
+        <div id="forgotPasswordPage" class="auth-container hidden">
+            <div class="auth-card">
+                <h1>Reset Password</h1>
+                <p class="subtitle">Enter your email to receive a reset link</p>
+                
+                <form id="forgotPasswordForm">
                     <div class="form-group">
                         <label>Email</label>
                         <input type="email" id="forgotEmail" required class="input-field" autocomplete="email">
                     </div>
                     <button type="submit" class="btn btn-primary btn-large">Send Reset Link</button>
                 </form>
-                <p>
-                    Remember your password?
-                    <a href="#" onclick="showLoginForm(); return false;">Sign in</a>
-                </p>
+                
+                <div class="auth-footer">
+                    <p><a href="#" onclick="showSignIn(); return false;">Back to sign in</a></p>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="container">
-        <div id="statusBar" class="status-bar hidden">
-            <div class="status-content">
-                <span id="statusIcon"></span>
-                <span id="statusMessage">Ready</span>
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="dashboard hidden">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search..." class="search-input">
             </div>
-            <button id="dismissStatus" class="dismiss-btn" onclick="document.getElementById('statusBar').classList.add('hidden')">&times;</button>
+            <button id="addSheetBtn" class="btn btn-primary">
+                <span class="btn-icon">+</span> Add Google Sheets
+            </button>
         </div>
 
-        <div class="content-grid">
-            <!-- Column 1: Credentials -->
-            <div class="card">
-                <h2>Step 1: Google Credentials</h2>
-                <div class="form-group">
-                    <div id="dropZone" class="drop-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('fileInput').click()">
-                        <div id="dropContent" class="drop-zone-content">
-                            <p class="drop-text">Click or drag credentials.json</p>
-                        </div>
-                        <div id="fileInfo" class="file-info hidden">
-                            <span id="fileName"></span>
-                            <button onclick="clearFile(); event.stopPropagation();" class="clear-btn">&times;</button>
-                        </div>
-                    </div>
-                    <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileSelect(event)">
-                </div>
-                <button id="connectSheetsBtn" class="btn btn-primary btn-large" disabled>Connect to Google Sheets</button>
-                <div id="credentialsStatus" class="hidden" style="margin-top: 1rem; padding: 0.75rem; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; font-size: 0.85rem; color: #15803d;">
-                    ✓ Credentials saved to your account
-                </div>
-                <button id="deleteCredentialsBtn" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem;">Delete Saved Credentials</button>
-            </div>
+        <!-- Sheets Table -->
+        <div class="sheets-container">
+            <table class="sheets-table">
+                <thead>
+                    <tr>
+                        <th class="checkbox-col"><input type="checkbox" id="selectAll"></th>
+                        <th class="number-col">#</th>
+                        <th class="name-col">NAME</th>
+                        <th class="description-col">DESCRIPTION</th>
+                        <th class="status-col">STATUS</th>
+                    </tr>
+                </thead>
+                <tbody id="sheetsTableBody">
+                    <!-- Sheets will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
 
-            <!-- Column 2: Configuration -->
-            <div class="card">
-                <h2>Step 2: Sheet Configuration</h2>
+        <!-- Bottom Bar -->
+        <div class="bottom-bar">
+            <button id="settingsBtn" class="btn btn-secondary">⚙️ Credentials & Settings</button>
+            <button id="logoutBtn" class="btn btn-text">Logout</button>
+        </div>
+    </div>
+
+    <!-- Add/Edit Sheet Modal -->
+    <div id="sheetModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Google Sheet</h2>
+                <button onclick="closeSheetModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="sheetName" placeholder="e.g., Ann Culhane" class="input-field">
+                </div>
                 <div class="form-group">
                     <label>Google Sheet URL</label>
-                    <input type="text" id="spreadsheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="input-field">
+                    <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="input-field">
                 </div>
                 <div class="form-group">
                     <label>Worksheet Name</label>
-                    <input type="text" id="worksheetName" value="Sheet1" class="input-field">
+                    <input type="text" id="sheetWorksheet" value="Sheet1" class="input-field">
                 </div>
-                <button id="saveDefaultsBtn" class="btn btn-secondary" style="width: 100%;">Save as Defaults</button>
-                <button id="clearDefaultsBtn" class="btn btn-secondary hidden" style="width: 100%; margin-top: 0.5rem;">Clear Defaults</button>
-                
-                <div style="margin-top: 1rem;">
-                    <div class="collapsible-header" onclick="toggleAdvanced()">
-                        <span style="font-size: 0.9rem; font-weight: 500;">Advanced Options</span>
-                        <span id="advancedToggle" class="toggle-icon">▼</span>
-                    </div>
-                    <div id="advancedOptions" class="advanced-options hidden">
-                        <div class="form-group">
-                            <label>Disable Columns</label>
-                            <input type="text" id="disableColumns" placeholder="e.g., name,impressions" class="input-field">
-                        </div>
-                        <div class="form-group">
-                            <label>Row Range</label>
-                            <input type="text" id="rowRange" placeholder="e.g., 2:10" class="input-field">
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="overrideData" checked>
-                                Override existing data
-                            </label>
-                        </div>
-                    </div>
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <input type="text" id="sheetDescription" placeholder="Add description here" class="input-field">
                 </div>
             </div>
+            <div class="modal-footer">
+                <button onclick="closeSheetModal()" class="btn btn-secondary">Cancel</button>
+                <button onclick="saveSheet()" class="btn btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
 
-            <!-- Column 3: Run -->
-            <div class="card">
-                <h2>Step 3: Run Update</h2>
-                <p style="font-size: 0.9rem; color: #6b7280; margin-bottom: 1.5rem;">Make sure you've connected to Google Sheets in Step 1, then click the button below to fetch stats.</p>
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Credentials & Settings</h2>
+                <button onclick="closeSettingsModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>Google OAuth Credentials</h3>
+                <div id="credentialsStatus" class="status-box hidden">
+                    <span class="status-icon">✓</span> Credentials saved
+                </div>
                 
-                <button id="runUpdateBtn" class="btn btn-primary btn-large">
-                    <span id="runBtnText">Run Update</span>
-                    <span id="runBtnSpinner" class="spinner hidden"></span>
-                </button>
-                
-                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                    <p style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem;">Requirements:</p>
-                    <ul style="font-size: 0.85rem; color: #6b7280; margin-left: 1.25rem;">
-                        <li>Sheet must have a URL column</li>
-                        <li>URLs should be TikTok or Instagram</li>
-                        <li>First row should contain headers</li>
-                    </ul>
-                    <p style="font-size: 0.85rem; color: #6b7280; margin-top: 0.75rem;">Note: You can use Advanced Options to disable/enable features.</p>
+                <div id="uploadArea" class="upload-area">
+                    <p>Upload your credentials.json file</p>
+                    <input type="file" id="credentialsFile" accept=".json" style="display: none;">
+                    <button onclick="document.getElementById('credentialsFile').click()" class="btn btn-secondary">
+                        Choose File
+                    </button>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <button id="connectSheetsBtn" class="btn btn-primary" disabled>Connect to Google Sheets</button>
+                    <p style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
+                        You need to connect once to authorize access to your Google Sheets
+                    </p>
+                </div>
+
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e5e7eb;">
+                    <button id="deleteCredentialsBtn" class="btn btn-danger">Delete Saved Credentials</button>
                 </div>
             </div>
         </div>
     </div>
-    <script type="module" src="/static/script.js?v=7"></script>
+
+    <!-- Status Toast -->
+    <div id="statusToast" class="status-toast hidden">
+        <span id="toastIcon"></span>
+        <span id="toastMessage"></span>
+    </div>
+
+    <script type="module" src="/static/script.js?v=8"></script>
 </body>
 </html>
