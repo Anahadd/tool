@@ -46,3 +46,21 @@ Thumbs.db
 # User data
 # (url.txt feature removed - use Google Sheets only)
 
+*.json
+*-firebase-adminsdk-*.json
+kalshitool-*.json
+
+
+# ===========================
+# CRITICAL SECURITY FILES
+# ===========================
+
+# Firebase service account keys
+*firebase-adminsdk*.json
+kalshitool*.json
+serviceAccountKey.json
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
