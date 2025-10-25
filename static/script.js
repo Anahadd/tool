@@ -386,7 +386,7 @@ function renderSheets(sheets) {
     if (sheets.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="empty-state">
+                <td colspan="6" class="empty-state">
                     <p>No Google Sheets added yet</p>
                     <button onclick="showAddSheetModal()" class="btn btn-primary">
                         <span class="btn-icon">+</span> Add Your First Sheet
@@ -394,13 +394,13 @@ function renderSheets(sheets) {
                 </td>
             </tr>
         `;
-            return;
-        }
+        return;
+    }
     
     tbody.innerHTML = sheets.map((sheet, index) => `
         <tr data-sheet-id="${sheet.id}">
             <td class="checkbox-col">
-                <input type="checkbox" data-sheet-id="${sheet.id}">
+                <input type="checkbox" class="sheet-checkbox" data-sheet-id="${sheet.id}">
             </td>
             <td class="number-col">${index + 1}</td>
             <td class="name-col">
@@ -413,6 +413,9 @@ function renderSheets(sheets) {
                 </span>
             </td>
             <td class="status-col">
+                ${renderStatusBadge(sheet.status, sheet.last_updated)}
+            </td>
+            <td class="action-col">
                 <button onclick="runUpdate('${sheet.id}')" class="btn run-update-btn" id="run-${sheet.id}">
                     Run Update
                 </button>
@@ -422,11 +425,53 @@ function renderSheets(sheets) {
     
     // Add double-click to edit
     tbody.querySelectorAll('tr[data-sheet-id]').forEach(row => {
-        row.addEventListener('dblclick', () => {
+        row.addEventListener('dblclick', (e) => {
+            // Don't trigger on checkbox or button clicks
+            if (e.target.type === 'checkbox' || e.target.tagName === 'BUTTON') return;
             const sheetId = row.getAttribute('data-sheet-id');
             editSheet(sheetId);
         });
     });
+    
+    // Setup checkbox listeners
+    setupCheckboxListeners();
+}
+
+function renderStatusBadge(status, lastUpdated) {
+    if (!status || status === 'idle') {
+        return '<span class="status-badge idle">Never run</span>';
+    }
+    
+    let badgeClass = status;
+    let badgeText = status.charAt(0).toUpperCase() + status.slice(1);
+    
+    if (status === 'complete' && lastUpdated) {
+        const timeAgo = getTimeAgo(lastUpdated);
+        return `
+            <div>
+                <span class="status-badge complete">${badgeText}</span>
+                <span class="status-time">${timeAgo}</span>
+            </div>
+        `;
+    }
+    
+    return `<span class="status-badge ${badgeClass}">${badgeText}</span>`;
+}
+
+function getTimeAgo(timestamp) {
+    const now = new Date();
+    const updated = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    const diffMs = now - updated;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return updated.toLocaleDateString();
 }
 
 function filterSheets() {
@@ -545,14 +590,96 @@ async function saveSheet() {
 }
 
 // ========================================
+// CHECKBOX & DELETE FUNCTIONALITY
+// ========================================
+
+function setupCheckboxListeners() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const sheetCheckboxes = document.querySelectorAll('.sheet-checkbox');
+    const tableActions = document.getElementById('tableActions');
+    
+    // Select all functionality
+    selectAllCheckbox.addEventListener('change', () => {
+        sheetCheckboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+        updateTableActionsVisibility();
+    });
+    
+    // Individual checkbox changes
+    sheetCheckboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+            const allChecked = Array.from(sheetCheckboxes).every(c => c.checked);
+            const someChecked = Array.from(sheetCheckboxes).some(c => c.checked);
+            selectAllCheckbox.checked = allChecked;
+            selectAllCheckbox.indeterminate = someChecked && !allChecked;
+            updateTableActionsVisibility();
+        });
+    });
+}
+
+function updateTableActionsVisibility() {
+    const checkedBoxes = document.querySelectorAll('.sheet-checkbox:checked');
+    const tableActions = document.getElementById('tableActions');
+    tableActions.style.display = checkedBoxes.length > 0 ? 'flex' : 'none';
+}
+
+async function deleteSelected() {
+    const checkedBoxes = document.querySelectorAll('.sheet-checkbox:checked');
+    const sheetIds = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-sheet-id'));
+    
+    if (sheetIds.length === 0) return;
+    
+    const confirmed = confirm(`Delete ${sheetIds.length} sheet${sheetIds.length > 1 ? 's' : ''}?`);
+    if (!confirmed) return;
+    
+    try {
+        const db = window.firebaseDB;
+        
+        // Delete all selected sheets
+        for (const sheetId of sheetIds) {
+            await window.firebase.deleteDoc(window.firebase.doc(db, 'user_sheets', sheetId));
+        }
+        
+        showToast(`Deleted ${sheetIds.length} sheet${sheetIds.length > 1 ? 's' : ''}`, 'success');
+        
+        // Reload sheets
+        await loadSheets();
+        
+        // Reset checkboxes
+        document.getElementById('selectAll').checked = false;
+        updateTableActionsVisibility();
+        
+    } catch (error) {
+        console.error('Delete error:', error);
+        showToast(`Failed to delete: ${error.message}`, 'error');
+    }
+}
+
+// ========================================
 // RUN UPDATE
 // ========================================
+
+async function updateSheetStatus(sheetId, status, lastUpdated = new Date()) {
+    try {
+        const db = window.firebaseDB;
+        const docRef = window.firebase.doc(db, 'user_sheets', sheetId);
+        
+        await window.firebase.updateDoc(docRef, {
+            status: status,
+            last_updated: lastUpdated
+        });
+        
+        console.log(`Updated status for ${sheetId}: ${status}`);
+    } catch (error) {
+        console.error('Failed to update status:', error);
+    }
+}
 
 async function runUpdate(sheetId) {
     const btn = document.getElementById(`run-${sheetId}`);
     if (!btn || btn.disabled) return;
     
     try {
+        // Disable button
         btn.disabled = true;
         btn.classList.add('running');
         btn.textContent = 'Running...';
@@ -566,6 +693,10 @@ async function runUpdate(sheetId) {
         }
         
         const sheet = sheetDoc.data();
+        
+        // Set status to PENDING
+        await updateSheetStatus(sheetId, 'pending');
+        await loadSheets(); // Refresh to show PENDING badge
         
         showToast(`Updating ${sheet.name}...`, 'info');
         
@@ -588,18 +719,23 @@ async function runUpdate(sheetId) {
         const data = await response.json();
         
         if (data.success) {
-            showToast(`✓ ${sheet.name} updated successfully!`, 'success');
+            // Set status to COMPLETE with timestamp
+            await updateSheetStatus(sheetId, 'complete', new Date());
+            showToast(`${sheet.name} updated successfully!`, 'success');
         } else {
+            // Set status to ERROR
+            await updateSheetStatus(sheetId, 'error', new Date());
             throw new Error(data.message || 'Update failed');
         }
         
     } catch (error) {
         console.error('Update error:', error);
+        // Set status to ERROR
+        await updateSheetStatus(sheetId, 'error', new Date());
         showToast(`Update failed: ${error.message}`, 'error');
     } finally {
-        btn.disabled = false;
-        btn.classList.remove('running');
-        btn.textContent = 'Run Update';
+        // Reload to show updated status
+        await loadSheets();
     }
 }
 

@@ -11,6 +11,7 @@ body {
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    user-select: none;
 }
 
 /* Auth Pages */
@@ -98,6 +99,7 @@ body {
     padding: 0.75rem 1rem;
     border: 1px solid #d1d5db;
     border-radius: 8px;
+    user-select: text;
     font-size: 0.95rem;
     font-family: inherit;
     transition: all 0.2s;
@@ -121,6 +123,11 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    position: relative;
+}
+
+.btn:active {
+    transform: scale(0.98);
 }
 
 .btn svg {
@@ -136,6 +143,12 @@ body {
     background: #4338ca;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.btn-primary:active {
+    background: #3730a3;
+    transform: scale(0.98);
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
 }
 
 .btn-google {
@@ -171,6 +184,11 @@ body {
     background: #e5e7eb;
 }
 
+.btn-secondary:active {
+    background: #d1d5db;
+    transform: scale(0.98);
+}
+
 .btn-danger {
     background: #ef4444;
     color: white;
@@ -178,6 +196,14 @@ body {
 
 .btn-danger:hover {
     background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:active {
+    background: #b91c1c;
+    transform: scale(0.98);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
 }
 
 .btn-text {
@@ -189,6 +215,11 @@ body {
 .btn-text:hover {
     color: #374151;
     background: #f3f4f6;
+}
+
+.btn-text:active {
+    background: #e5e7eb;
+    transform: scale(0.98);
 }
 
 .btn-large {
@@ -307,7 +338,11 @@ body {
 }
 
 .status-col {
-    width: 200px;
+    width: 180px;
+}
+
+.action-col {
+    width: 150px;
     text-align: right;
 }
 
@@ -338,22 +373,100 @@ body {
     padding: 0.625rem 1.5rem;
     border-radius: 6px;
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.025em;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
 }
 
 .run-update-btn:hover {
     background: #4338ca;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.run-update-btn:active {
+    background: #3730a3;
+    transform: scale(0.98);
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
 }
 
 .run-update-btn:disabled {
     background: #9ca3af;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .run-update-btn.running {
     background: #6b7280;
+    cursor: wait;
+    transform: none;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.status-badge.pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-badge.running {
+    background: #dbeafe;
+    color: #1e40af;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: .7;
+    }
+}
+
+.status-badge.complete {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-badge.idle {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.status-time {
+    display: block;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+/* Table actions bar */
+.table-actions {
+    padding: 1rem 2rem;
+    background: #fef2f2;
+    border-bottom: 1px solid #fecaca;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .empty-state {
