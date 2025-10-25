@@ -212,6 +212,8 @@ async def main():
             sleep_after=1,
             headless=True,
             browser=os.getenv("TIKTOK_BROWSER", "chromium"),
+            # Increase timeout for slower environments
+            timeout=int(os.getenv("PLAYWRIGHT_TIMEOUT", "60000")),  # 60 seconds default
         )
         results = await asyncio.gather(*(fetch_stats(api, u) for u in tiktok_urls))
 
@@ -303,6 +305,8 @@ async def update_sheet_impressions():
                 sleep_after=1,
                 headless=True,
                 browser=os.getenv("TIKTOK_BROWSER", "chromium"),
+                # Increase timeout for slower environments
+                timeout=int(os.getenv("PLAYWRIGHT_TIMEOUT", "60000")),  # 60 seconds default
             )
             results = await asyncio.gather(*(fetch_stats(api, u) for u in tt_urls_unique))
         for (u, views, _likes, _comments, _post_date, status) in results:

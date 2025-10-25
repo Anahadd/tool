@@ -96,6 +96,8 @@ async def run_tiktok(urls, show_progress=False):
                 sleep_after=1,
                 headless=True,
                 browser=os.getenv("TIKTOK_BROWSER", "chromium"),
+                # Increase timeout for slower environments (Railway, etc.)
+                timeout=int(os.getenv("PLAYWRIGHT_TIMEOUT", "60000")),  # 60 seconds default
             )
             
             # Process in batches to avoid overwhelming the API
