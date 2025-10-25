@@ -1,6 +1,6 @@
 // Firebase initialization and configuration
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, addDoc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -22,6 +22,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const storage = getStorage(app);
 const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
 // Export for use in other modules
 window.firebaseAuth = auth;
@@ -69,39 +70,35 @@ window.firebase = {
     orderBy,
     
     // Auth functions
-    register: async (email, password, username) => {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+    signInWithGoogle: async () => {
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
         
-        // Store username in Firestore
-        await setDoc(doc(db, 'users', user.uid), {
-            email: email,
-            username: username,
-            created_at: new Date(),
-            last_login: new Date()
-        });
+        // Store/update user data in Firestore
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
         
-        return user;
-    },
-    
-    login: async (email, password) => {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        
-        // Update last login
-        await updateDoc(doc(db, 'users', user.uid), {
-            last_login: new Date()
-        });
+        if (!userDoc.exists()) {
+            // First time sign-in, create user profile
+            await setDoc(userRef, {
+                email: user.email,
+                username: user.displayName || user.email.split('@')[0],
+                photo_url: user.photoURL,
+                created_at: new Date(),
+                last_login: new Date()
+            });
+        } else {
+            // Update last login
+            await updateDoc(userRef, {
+                last_login: new Date()
+            });
+        }
         
         return user;
     },
     
     logout: async () => {
         await signOut(auth);
-    },
-    
-    resetPassword: async (email) => {
-        await sendPasswordResetEmail(auth, email);
     },
     
     getCurrentUser: () => {

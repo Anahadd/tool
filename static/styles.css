@@ -131,6 +131,30 @@ body {
     box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
+.btn-google {
+    background: white;
+    color: #3c4043;
+    border: 1px solid #dadce0;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    transition: all 0.2s;
+}
+
+.btn-google:hover {
+    background: #f8f9fa;
+    border-color: #d2d3d4;
+    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3);
+    transform: translateY(-1px);
+}
+
+.btn-google:active {
+    background: #f1f3f4;
+    transform: translateY(0);
+}
+
 .btn-secondary {
     background: #f3f4f6;
     color: #374151;
@@ -172,25 +196,11 @@ body {
     font-weight: 600;
 }
 
-.auth-footer {
+.auth-footer-text {
     margin-top: 2rem;
     text-align: center;
-}
-
-.auth-footer p {
-    margin: 0.75rem 0;
-    color: #6b7280;
-    font-size: 0.9rem;
-}
-
-.auth-footer a {
-    color: #4f46e5;
-    text-decoration: none;
-    font-weight: 500;
-}
-
-.auth-footer a:hover {
-    text-decoration: underline;
+    color: #9ca3af;
+    font-size: 0.85rem;
 }
 
 /* Dashboard */

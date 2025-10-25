@@ -22,99 +22,67 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // Auth forms
-    document.getElementById('signInForm').addEventListener('submit', handleSignIn);
-    document.getElementById('createAccountForm').addEventListener('submit', handleCreateAccount);
-    document.getElementById('forgotPasswordForm').addEventListener('submit', handleForgotPassword);
+    // Auth
+    const googleBtn = document.getElementById('googleSignInBtn');
+    if (googleBtn) {
+        googleBtn.addEventListener('click', handleGoogleSignIn);
+    }
     
     // Dashboard buttons
-    document.getElementById('addSheetBtn').addEventListener('click', showAddSheetModal);
-    document.getElementById('settingsBtn').addEventListener('click', showSettingsModal);
-    document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    const addSheetBtn = document.getElementById('addSheetBtn');
+    if (addSheetBtn) {
+        addSheetBtn.addEventListener('click', showAddSheetModal);
+    }
+    
+    const settingsBtn = document.getElementById('settingsBtn');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', showSettingsModal);
+    }
+    
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
     
     // Settings
-    document.getElementById('credentialsFile').addEventListener('change', handleCredentialsUpload);
-    document.getElementById('connectSheetsBtn').addEventListener('click', connectToGoogleSheets);
-    document.getElementById('deleteCredentialsBtn').addEventListener('click', deleteCredentials);
+    const credFile = document.getElementById('credentialsFile');
+    if (credFile) {
+        credFile.addEventListener('change', handleCredentialsUpload);
+    }
+    
+    const connectBtn = document.getElementById('connectSheetsBtn');
+    if (connectBtn) {
+        connectBtn.addEventListener('click', connectToGoogleSheets);
+    }
+    
+    const deleteBtn = document.getElementById('deleteCredentialsBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', deleteCredentials);
+    }
     
     // Search
-    document.getElementById('searchInput').addEventListener('input', filterSheets);
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', filterSheets);
+    }
 }
 
 // ========================================
 // AUTH FUNCTIONS
 // ========================================
 
-async function handleSignIn(e) {
-    e.preventDefault();
-    
-    const email = document.getElementById('signInEmail').value.trim();
-    const password = document.getElementById('signInPassword').value;
-    
-    if (!email || !password) {
-        showToast('Please enter email and password', 'error');
-        return;
-    }
-    
+async function handleGoogleSignIn() {
     try {
-        showToast('Signing in...', 'info');
-        await window.firebase.login(email, password);
+        showToast('Signing in with Google...', 'info');
+        await window.firebase.signInWithGoogle();
         // Firebase will trigger onFirebaseAuthChanged
     } catch (error) {
-        console.error('Sign in error:', error);
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-            showToast('Invalid email or password', 'error');
+        console.error('Google sign-in error:', error);
+        if (error.code === 'auth/popup-closed-by-user') {
+            showToast('Sign-in cancelled', 'info');
         } else {
-            showToast(`Sign in failed: ${error.message}`, 'error');
+            showToast(`Sign-in failed: ${error.message}`, 'error');
         }
-    }
-}
-
-async function handleCreateAccount(e) {
-    e.preventDefault();
-    
-    const email = document.getElementById('createEmail').value.trim();
-    const password = document.getElementById('createPassword').value;
-    const username = document.getElementById('createUsername').value.trim();
-    
-    if (!email || !password || !username) {
-        showToast('Please fill in all fields', 'error');
-        return;
-    }
-    
-    try {
-        showToast('Creating account...', 'info');
-        await window.firebase.register(email, password, username);
-        showToast('Account created successfully!', 'success');
-        // Firebase will trigger onFirebaseAuthChanged
-    } catch (error) {
-        console.error('Registration error:', error);
-        if (error.code === 'auth/email-already-in-use') {
-            showToast('Email already registered. Try signing in.', 'error');
-        } else if (error.code === 'auth/weak-password') {
-            showToast('Password should be at least 6 characters', 'error');
-        } else {
-            showToast(`Registration failed: ${error.message}`, 'error');
-        }
-    }
-}
-
-async function handleForgotPassword(e) {
-    e.preventDefault();
-    
-    const email = document.getElementById('forgotEmail').value.trim();
-    
-    if (!email) {
-        showToast('Please enter your email', 'error');
-        return;
-    }
-    
-    try {
-        await window.firebase.resetPassword(email);
-        showToast('Password reset email sent! Check your inbox.', 'success');
-        setTimeout(() => showSignIn(), 2000);
-    } catch (error) {
-        showToast(`Error: ${error.message}`, 'error');
     }
 }
 
@@ -135,25 +103,6 @@ async function handleLogout() {
 function showAuthPage() {
     document.getElementById('authPage').classList.remove('hidden');
     document.getElementById('adminDashboard').classList.add('hidden');
-    showSignIn();
-}
-
-function showSignIn() {
-    document.getElementById('signInPage').classList.remove('hidden');
-    document.getElementById('createAccountPage').classList.add('hidden');
-    document.getElementById('forgotPasswordPage').classList.add('hidden');
-}
-
-function showCreateAccount() {
-    document.getElementById('signInPage').classList.add('hidden');
-    document.getElementById('createAccountPage').classList.remove('hidden');
-    document.getElementById('forgotPasswordPage').classList.add('hidden');
-}
-
-function showForgotPassword() {
-    document.getElementById('signInPage').classList.add('hidden');
-    document.getElementById('createAccountPage').classList.add('hidden');
-    document.getElementById('forgotPasswordPage').classList.remove('hidden');
 }
 
 async function onUserSignedIn(user) {
