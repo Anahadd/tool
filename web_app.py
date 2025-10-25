@@ -9,6 +9,10 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, WebSocket, WebSocketDisconnect, Depends, Header
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
