@@ -405,7 +405,6 @@ function renderSheets(sheets) {
             <td class="number-col">${index + 1}</td>
             <td class="name-col">
                 <div class="sheet-name">${escapeHtml(sheet.name)}</div>
-                <div class="sheet-id">${sheet.id.substring(0, 10)}</div>
             </td>
             <td class="description-col">
                 <span class="description-text ${sheet.description ? '' : 'placeholder'}">

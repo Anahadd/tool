@@ -75,15 +75,24 @@ async def root():
 async def oauth_start(user_id: str = Depends(verify_firebase_token)):
     """Start OAuth flow - returns authorization URL"""
     try:
+        print(f"DEBUG: OAuth start requested for user {user_id}")
+        
         # Get credentials.json from Firebase Storage
         credentials_content = await firebase_service.get_credentials(user_id)
         
+        print(f"DEBUG: Credentials retrieved: {bool(credentials_content)}")
+        
         if not credentials_content:
-            raise HTTPException(status_code=400, detail="Credentials not found. Please upload credentials.json first.")
+            print("ERROR: No credentials found in Firebase Storage")
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Credentials not found. Please upload credentials.json first."}
+            )
         
         # Save to temporary file for OAuth flow
         temp_path = Path(tempfile.gettempdir()) / f"impressions_creds_{user_id}.json"
         temp_path.write_text(credentials_content)
+        print(f"DEBUG: Saved credentials to {temp_path}")
         
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
@@ -123,13 +132,22 @@ async def oauth_start(user_id: str = Depends(verify_firebase_token)):
             "creds_path": str(temp_path)
         }
         
+        print(f"DEBUG: OAuth URL generated successfully")
+        
         return {
             "success": True,
             "auth_url": authorization_url,
             "state": state
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start OAuth: {str(e)}")
+        error_msg = str(e)
+        print(f"ERROR: OAuth start failed: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"Failed to start OAuth: {error_msg}"}
+        )
 
 
 @app.get("/api/oauth-callback")
