@@ -146,7 +146,7 @@ def store_credentials(user_id: str, credentials_data: bytes, filename: str = "cr
     except Exception as e:
         return False, f"Error storing credentials: {str(e)}"
 
-def get_credentials(user_id: str, filename: str = "credentials.json") -> Optional[bytes]:
+async def get_credentials(user_id: str, filename: str = "credentials.json") -> Optional[str]:
     """
     Retrieve user's Google OAuth credentials from Firebase Storage
     
@@ -155,7 +155,7 @@ def get_credentials(user_id: str, filename: str = "credentials.json") -> Optiona
         filename: Filename (default: credentials.json)
     
     Returns:
-        Credentials file content (bytes) or None
+        Credentials file content (string) or None
     """
     try:
         bucket = firebase_config.get_storage()
@@ -167,7 +167,8 @@ def get_credentials(user_id: str, filename: str = "credentials.json") -> Optiona
         if not blob.exists():
             return None
         
-        return blob.download_as_bytes()
+        data = blob.download_as_bytes()
+        return data.decode('utf-8')
         
     except Exception as e:
         print(f"Error retrieving credentials: {e}")
@@ -193,13 +194,13 @@ def has_credentials(user_id: str) -> bool:
         print(f"Error checking credentials: {e}")
         return False
 
-def store_oauth_token(user_id: str, token_data: str) -> Tuple[bool, str]:
+async def store_oauth_token(user_id: str, token_data: Dict) -> Tuple[bool, str]:
     """
     Store user's OAuth token in Firestore
     
     Args:
         user_id: Firebase user ID
-        token_data: OAuth token JSON string
+        token_data: OAuth token data dict
     
     Returns:
         (success, message)
@@ -220,7 +221,7 @@ def store_oauth_token(user_id: str, token_data: str) -> Tuple[bool, str]:
     except Exception as e:
         return False, f"Error storing OAuth token: {str(e)}"
 
-def get_oauth_token(user_id: str) -> Optional[str]:
+async def get_oauth_token(user_id: str) -> Optional[Dict]:
     """Retrieve user's OAuth token from Firestore"""
     try:
         db = firebase_config.get_firestore()

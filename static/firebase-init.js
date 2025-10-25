@@ -5,6 +5,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "http
 import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // Your web app's Firebase configuration
+// NOTE: These are client-side keys and are safe to expose
+// Real security comes from Firebase Security Rules
 const firebaseConfig = {
   apiKey: "AIzaSyCgFWyeom2gwxl0sKLspemus_FFRnT986o",
   authDomain: "kalshitool.firebaseapp.com",

@@ -10,14 +10,16 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, WebSocket, WebSocketDisconnect, Depends, Header
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 import config_store
 import integrations as integrations_mod
+import firebase_config
+import firebase_service
 
 app = FastAPI(title="Kalshi Internal - Impressions Tool", description="TikTok & Instagram stats updater")
 
@@ -36,13 +38,28 @@ app.add_middleware(
 # Store for WebSocket connections
 active_connections = []
 
-# Store for uploaded credentials (temporary)
-credentials_store = {}
+# Store for OAuth flow state (temporary, during OAuth flow)
+oauth_flow_state = {}
 
-# Store for OAuth tokens (in-memory, persists during app lifetime)
-# Store the actual credentials object, not JSON
-oauth_tokens = {}
-oauth_credentials = {}  # Store Credentials objects directly
+# Store for OAuth credentials in memory (after successful OAuth)
+oauth_credentials = {}  # user_id -> Credentials object
+
+
+# Firebase ID Token verification
+async def verify_firebase_token(authorization: str = Header(None)) -> str:
+    """Verify Firebase ID token and return user_id"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+    
+    id_token = authorization.split("Bearer ")[1]
+    
+    try:
+        decoded_token = firebase_service.verify_id_token(id_token)
+        if not decoded_token:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return decoded_token['uid']
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -54,42 +71,19 @@ async def root():
     return "<h1>Kalshi Internal - Impressions Tool</h1><p>Frontend not found</p>"
 
 
-@app.post("/api/upload-credentials")
-async def upload_credentials(file: UploadFile = File(...)):
-    """Upload Google OAuth credentials JSON file"""
-    try:
-        content = await file.read()
-        
-        try:
-            credentials_data = json.loads(content)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON file")
-        
-        import uuid
-        file_id = str(uuid.uuid4())
-        
-        temp_path = Path(tempfile.gettempdir()) / f"impressions_creds_{file_id}.json"
-        temp_path.write_bytes(content)
-        
-        credentials_store[file_id] = str(temp_path)
-        
-        return {
-            "success": True,
-            "file_id": file_id,
-            "message": "Credentials uploaded successfully"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/oauth-start")
-async def oauth_start(file_id: str):
+async def oauth_start(user_id: str = Depends(verify_firebase_token)):
     """Start OAuth flow - returns authorization URL"""
     try:
-        if file_id not in credentials_store:
-            raise HTTPException(status_code=400, detail="Credentials file not found")
+        # Get credentials.json from Firebase Storage
+        credentials_content = await firebase_service.get_credentials(user_id)
         
-        creds_path = credentials_store[file_id]
+        if not credentials_content:
+            raise HTTPException(status_code=400, detail="Credentials not found. Please upload credentials.json first.")
+        
+        # Save to temporary file for OAuth flow
+        temp_path = Path(tempfile.gettempdir()) / f"impressions_creds_{user_id}.json"
+        temp_path.write_text(credentials_content)
         
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
@@ -112,7 +106,7 @@ async def oauth_start(file_id: str):
         print(f"DEBUG: redirect_uri={redirect_uri}")
         
         flow = Flow.from_client_secrets_file(
-            creds_path,
+            str(temp_path),
             scopes=scopes,
             redirect_uri=redirect_uri
         )
@@ -123,15 +117,15 @@ async def oauth_start(file_id: str):
             prompt='consent'  # Force consent screen every time to ensure callback executes
         )
         
-        # Store the flow state and file_id for callback
-        credentials_store[f"state_{state}"] = {
-            "creds_path": creds_path,
-            "file_id": file_id
+        # Store the state and user_id for callback
+        oauth_flow_state[state] = {
+            "user_id": user_id,
+            "creds_path": str(temp_path)
         }
         
         return {
             "success": True,
-            "authorization_url": authorization_url,
+            "auth_url": authorization_url,
             "state": state
         }
     except Exception as e:
@@ -142,10 +136,25 @@ async def oauth_start(file_id: str):
 async def oauth_callback(state: str, code: str):
     """Handle OAuth callback from Google"""
     try:
-        if f"state_{state}" not in credentials_store:
-            raise HTTPException(status_code=400, detail="Invalid OAuth state")
+        if state not in oauth_flow_state:
+            # Return HTML with error message
+            return HTMLResponse(content="""
+                <html>
+                <body>
+                    <h2>OAuth Error</h2>
+                    <p>Invalid OAuth state. Please try again.</p>
+                    <script>
+                        setTimeout(() => {
+                            window.opener.postMessage({type: 'oauth_error', message: 'Invalid state'}, '*');
+                            window.close();
+                        }, 2000);
+                    </script>
+                </body>
+                </html>
+            """)
         
-        stored_data = credentials_store[f"state_{state}"]
+        stored_data = oauth_flow_state[state]
+        user_id = stored_data["user_id"]
         creds_path = stored_data["creds_path"]
         
         from google_auth_oauthlib.flow import Flow
@@ -168,32 +177,25 @@ async def oauth_callback(state: str, code: str):
         flow.fetch_token(code=code)
         creds = flow.credentials
         
-        # Save credentials object directly in memory (Railway filesystem is ephemeral)
-        import uuid
-        token_id = str(uuid.uuid4())
-        oauth_credentials[token_id] = creds  # Store the actual Credentials object
+        # Store credentials in memory for this session
+        oauth_credentials[user_id] = creds
         
-        # Also save JSON and to disk for backwards compatibility
-        oauth_tokens[token_id] = creds.to_json()
-        try:
-            config_dir = Path.home() / ".tool_google"
-            config_dir.mkdir(parents=True, exist_ok=True)
-            token_file = config_dir / "token.json"
-            token_file.write_text(creds.to_json())
-        except Exception:
-            pass  # Ignore disk write errors in production
+        # Save OAuth token to Firestore for persistence
+        token_data = {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": creds.scopes
+        }
         
-        # Store token_id for this session
-        file_id = stored_data["file_id"]
-        credentials_store[f"token_{file_id}"] = token_id
+        await firebase_service.store_oauth_token(user_id, token_data)
         
-        # Debug logging
-        print(f"DEBUG: Saved OAuth credentials for file_id={file_id}, token_id={token_id}")
-        print(f"DEBUG: credentials_store keys: {list(credentials_store.keys())}")
-        print(f"DEBUG: oauth_credentials keys: {list(oauth_credentials.keys())}")
+        # Clean up state
+        del oauth_flow_state[state]
         
-        # Clean up stored state
-        del credentials_store[f"state_{state}"]
+        print(f"DEBUG: Saved OAuth credentials for user_id={user_id}")
         
         # Return HTML that closes the popup and notifies parent window
         return HTMLResponse(content="""
@@ -315,9 +317,9 @@ async def set_defaults(
 
 @app.post("/api/update-sheets")
 async def update_sheets(
+    user_id: str = Depends(verify_firebase_token),
     spreadsheet: Optional[str] = Form(None),
     worksheet: Optional[str] = Form(None),
-    file_id: Optional[str] = Form(None),
     disable_columns: Optional[str] = Form(""),
     override: bool = Form(True),
     start_row: Optional[int] = Form(None),
@@ -325,26 +327,38 @@ async def update_sheets(
 ):
     """Run the sheet update process"""
     try:
-        creds_path = None
-        oauth_token_json = None
+        # Get credentials.json from Firebase Storage
+        creds_content = await firebase_service.get_credentials(user_id)
+        if not creds_content:
+            raise HTTPException(status_code=400, detail="Credentials not found. Please upload credentials.json first.")
         
-        # Debug logging
-        print(f"DEBUG: update_sheets called with file_id={file_id}")
-        print(f"DEBUG: credentials_store keys: {list(credentials_store.keys())}")
-        print(f"DEBUG: oauth_credentials keys: {list(oauth_credentials.keys())}")
+        # Save to temporary file
+        creds_path = Path(tempfile.gettempdir()) / f"impressions_creds_{user_id}.json"
+        creds_path.write_text(creds_content)
         
-        # Check if we have OAuth credentials for this file_id
+        # Get OAuth credentials from memory or Firestore
         oauth_creds = None
-        if file_id and f"token_{file_id}" in credentials_store:
-            token_id = credentials_store[f"token_{file_id}"]
-            print(f"DEBUG: Found token_id={token_id} for file_id={file_id}")
-            if token_id in oauth_credentials:
-                oauth_creds = oauth_credentials[token_id]
-                print(f"DEBUG: Found OAuth Credentials object")
-            else:
-                print(f"DEBUG: token_id not in oauth_credentials!")
+        if user_id in oauth_credentials:
+            # Already in memory
+            oauth_creds = oauth_credentials[user_id]
+            print(f"DEBUG: Using OAuth credentials from memory for user {user_id}")
         else:
-            print(f"DEBUG: No token found for file_id={file_id}")
+            # Try to load from Firestore
+            token_data = await firebase_service.get_oauth_token(user_id)
+            if token_data:
+                # Reconstruct credentials from token data
+                from google.oauth2.credentials import Credentials
+                oauth_creds = Credentials(
+                    token=token_data.get("token"),
+                    refresh_token=token_data.get("refresh_token"),
+                    token_uri=token_data.get("token_uri"),
+                    client_id=token_data.get("client_id"),
+                    client_secret=token_data.get("client_secret"),
+                    scopes=token_data.get("scopes")
+                )
+                # Cache in memory
+                oauth_credentials[user_id] = oauth_creds
+                print(f"DEBUG: Loaded OAuth credentials from Firestore for user {user_id}")
         
         # Require OAuth authentication
         if not oauth_creds:
@@ -352,11 +366,6 @@ async def update_sheets(
                 status_code=400, 
                 detail="Please click 'Connect to Google Sheets' button first to authenticate with your Google account."
             )
-        
-        # Also check for uploaded credentials file
-        if file_id and file_id in credentials_store:
-            creds_path = credentials_store[file_id]
-            print(f"DEBUG: Found creds_path={creds_path}")
         
         disabled_cols = []
         if disable_columns:
@@ -371,7 +380,7 @@ async def update_sheets(
         await integrations_mod.update_sheet_views_likes_comments(
             spreadsheet=spreadsheet,
             worksheet=worksheet,
-            creds_path=creds_path,
+            creds_path=str(creds_path),
             disabled_columns=disabled_cols,
             override=override,
             start_row=start_row,
