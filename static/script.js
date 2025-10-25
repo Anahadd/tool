@@ -300,21 +300,40 @@ async function connectToGoogleSheetsOnSetup() {
                 `width=${width},height=${height},left=${left},top=${top}`
             );
             
-            // Listen for OAuth completion
-            window.addEventListener('message', async (event) => {
-                if (event.data.type === 'oauth_success') {
-                    showToast('Google Sheets connected! Loading dashboard...', 'success');
-                    
-                    // Now show dashboard
-                    document.getElementById('credentialsSetupPage').classList.add('hidden');
-                    document.getElementById('adminDashboard').classList.remove('hidden');
-                    
-                    // Load user's sheets
-                    await loadSheets();
-                } else if (event.data.type === 'oauth_error') {
-                    showToast(`OAuth failed: ${event.data.message}`, 'error');
+            // Set up interval to check if popup closed
+            const checkPopupClosed = setInterval(() => {
+                if (popup && popup.closed) {
+                    clearInterval(checkPopupClosed);
+                    // Popup closed, show dashboard
+                    console.log('OAuth popup closed, showing dashboard');
+                    showDashboardAfterOAuth();
                 }
-            }, { once: true });
+            }, 500);
+            
+            // Listen for OAuth completion message
+            const messageHandler = async (event) => {
+                console.log('Received message:', event.data);
+                
+                if (event.data.type === 'oauth_success') {
+                    clearInterval(checkPopupClosed);
+                    showToast('Google Sheets connected! Loading dashboard...', 'success');
+                    await showDashboardAfterOAuth();
+                    window.removeEventListener('message', messageHandler);
+                } else if (event.data.type === 'oauth_error') {
+                    clearInterval(checkPopupClosed);
+                    showToast(`OAuth failed: ${event.data.message}`, 'error');
+                    await showDashboardAfterOAuth();
+                    window.removeEventListener('message', messageHandler);
+                }
+            };
+            
+            window.addEventListener('message', messageHandler);
+            
+            // Timeout after 5 minutes
+            setTimeout(() => {
+                clearInterval(checkPopupClosed);
+                window.removeEventListener('message', messageHandler);
+            }, 300000);
             
             showToast('Complete authorization in the popup window...', 'info');
         } else {
@@ -325,10 +344,21 @@ async function connectToGoogleSheetsOnSetup() {
         showToast(`Connection failed: ${error.message}`, 'error');
         
         // Still show dashboard even if OAuth fails
-        document.getElementById('credentialsSetupPage').classList.add('hidden');
-        document.getElementById('adminDashboard').classList.remove('hidden');
-        await loadSheets();
+        await showDashboardAfterOAuth();
     }
+}
+
+async function showDashboardAfterOAuth() {
+    // Hide credentials setup page
+    document.getElementById('credentialsSetupPage').classList.add('hidden');
+    
+    // Show admin dashboard
+    document.getElementById('adminDashboard').classList.remove('hidden');
+    
+    // Load user's sheets
+    await loadSheets();
+    
+    console.log('Dashboard loaded');
 }
 
 // ========================================
