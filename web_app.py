@@ -116,8 +116,6 @@ async def oauth_start(user_id: str = Depends(verify_firebase_token)):
         ]
         
         from google_auth_oauthlib.flow import Flow
-        from pathlib import Path
-        import json
         
         # Get the base URL for redirect
         # Use environment variable or default
