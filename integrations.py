@@ -7,6 +7,7 @@ import time
 import main as tiktokmod
 import ig as igmod
 import youtube as ytmod
+import twitter as twmod
 from apify_client import ApifyClient
 from TikTokApi import TikTokApi
 import gspread
@@ -68,6 +69,7 @@ def _progress(current: int, total: int, prefix: str = "Progress"):
 def classify_urls(all_urls):
     tiktok_urls = tiktokmod.tiktok_video_links(all_urls)
     youtube_urls = ytmod.youtube_video_links(all_urls)
+    twitter_urls = twmod.twitter_links(all_urls)
 
     instagram_urls, seen = [], set()
     for u in all_urls:
@@ -79,7 +81,7 @@ def classify_urls(all_urls):
                 seen.add(cu)
 
     
-    return tiktok_urls, youtube_urls, instagram_urls
+    return tiktok_urls, youtube_urls, twitter_urls, instagram_urls
 
 
 async def run_tiktok(urls, show_progress=False):
@@ -168,6 +170,39 @@ def run_youtube(urls, show_progress=False):
     
     if show_progress:
         _progress(total, total, "Fetching YouTube")
+    
+    return results
+
+
+def run_twitter(urls, show_progress=False):
+    """Fetch Twitter/X stats using Twitter API v2."""
+    if not urls:
+        return []
+    
+    bearer_token = os.getenv("TWITTER_BEARER_TOKEN", "")
+    if not bearer_token:
+        _log("Warning: TWITTER_BEARER_TOKEN not set, skipping Twitter posts")
+        return [(url, "", "", "", "", "no_bearer_token") for url in urls]
+    
+    results = []
+    total = len(urls)
+    
+    for i, url in enumerate(urls):
+        if show_progress and i % 10 == 0:
+            _progress(i, total, "Fetching Twitter")
+        
+        try:
+            url_result, views, likes, retweets, replies, status = twmod.fetch_tweet_stats_by_url(url, bearer_token=bearer_token)
+            # Return format: (url, views, likes, retweets+comments, date, status)
+            # Combine retweets and replies into one "comments" field for consistency
+            combined_comments = str(int(retweets or 0) + int(replies or 0)) if retweets or replies else ""
+            results.append((url, views, likes, combined_comments, "", status))
+        except Exception as e:
+            _log(f"Warning: Twitter fetch failed for {url}: {e}")
+            results.append((url, "", "", "", "", f"error:{type(e).__name__}"))
+    
+    if show_progress:
+        _progress(total, total, "Fetching Twitter")
     
     return results
 
@@ -552,6 +587,7 @@ async def update_sheet_views_likes_comments(
         row_to_url: Dict[int, str] = {}
         tiktok_rows: List[int] = []
         youtube_rows: List[int] = []
+        twitter_rows: List[int] = []
         instagram_rows: List[int] = []
         raw_urls: List[str] = []
 
@@ -572,11 +608,13 @@ async def update_sheet_views_likes_comments(
                     tiktok_rows.append(r)
             elif "youtube.com" in host or "youtu.be" in host:
                 youtube_rows.append(r)
+            elif "twitter.com" in host or "x.com" in host:
+                twitter_rows.append(r)
             elif "instagram.com" in host:
                 instagram_rows.append(r)
 
         total_urls = len(raw_urls)
-        _log(f"Found {total_urls} URLs: {len(tiktok_rows)} TikTok, {len(youtube_rows)} YouTube, {len(instagram_rows)} Instagram")
+        _log(f"Found {total_urls} URLs: {len(tiktok_rows)} TikTok, {len(youtube_rows)} YouTube, {len(twitter_rows)} Twitter, {len(instagram_rows)} Instagram")
 
         if total_urls == 0:
             _log("No URLs found in sheet")
@@ -621,6 +659,26 @@ async def update_sheet_views_likes_comments(
                     success_count += 1
             
             _log(f"YouTube: {success_count}/{len(yt_urls_unique)} successful")
+
+        # Fetch Twitter stats
+        tw_stats_by_url: Dict[str, Dict[str, str]] = {}
+        tw_urls_unique = twmod.twitter_links(raw_urls)
+        if tw_urls_unique:
+            _log(f"Fetching {len(tw_urls_unique)} Twitter/X posts...")
+            try:
+                results = run_twitter(tw_urls_unique, show_progress=True)
+            except Exception as e:
+                _log(f"Warning: Twitter fetch failed: {type(e).__name__}: {e}")
+                _log("Continuing with other platforms...")
+                results = []
+            
+            success_count = 0
+            for (u, views, likes, comments, post_date, status) in results:
+                if status == "ok":
+                    tw_stats_by_url[u] = {"views": views, "likes": likes, "comments": comments, "date": post_date}
+                    success_count += 1
+            
+            _log(f"Twitter: {success_count}/{len(tw_urls_unique)} successful")
 
         # Fetch Instagram stats with progress
         ig_stats_by_url: Dict[str, Dict[str, str]] = {}
@@ -777,6 +835,29 @@ async def update_sheet_views_likes_comments(
                         new_c = stats.get("comments", c)
                         c = new_c if (override or _is_empty(orig_c)) else orig_c
                     # Get post date from YouTube stats
+                    post_date = stats.get("date", "")
+            # For Twitter/X, extract username and fetch stats
+            elif "twitter.com" in host or "x.com" in host:
+                # Canonicalize Twitter URL
+                canonical_tw_url = twmod.canonicalize_twitter_url(u)
+                
+                # Extract channel/username from URL if not already present
+                if channel_col and not ch:
+                    ch = "Twitter"
+                
+                stats = tw_stats_by_url.get(canonical_tw_url) if canonical_tw_url else None
+                if stats:
+                    if views_col:
+                        new_v = stats.get("views", v)
+                        v = new_v if (override or _is_empty(orig_v)) else orig_v
+                    if likes_col:
+                        new_l = stats.get("likes", l)
+                        l = new_l if (override or _is_empty(orig_l)) else orig_l
+                    if comments_col:
+                        # For Twitter, comments = retweets + replies combined
+                        new_c = stats.get("comments", c)
+                        c = new_c if (override or _is_empty(orig_c)) else orig_c
+                    # Get post date from Twitter stats
                     post_date = stats.get("date", "")
             elif "instagram.com" in host:
                 # Extract account name from URL if not already present
