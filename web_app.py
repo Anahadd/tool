@@ -386,6 +386,7 @@ async def update_sheets(
             if token_data:
                 # Reconstruct credentials from token data
                 from google.oauth2.credentials import Credentials
+                from google.auth.transport.requests import Request as GoogleRequest
                 oauth_creds = Credentials(
                     token=token_data.get("token"),
                     refresh_token=token_data.get("refresh_token"),
@@ -394,6 +395,34 @@ async def update_sheets(
                     client_secret=token_data.get("client_secret"),
                     scopes=token_data.get("scopes")
                 )
+                
+                # Check if token is expired and try to refresh
+                if oauth_creds.expired and oauth_creds.refresh_token:
+                    try:
+                        oauth_creds.refresh(GoogleRequest())
+                        print(f"DEBUG: Refreshed expired token for user {user_id}")
+                        
+                        # Save refreshed token back to Firestore
+                        refreshed_token_data = {
+                            "token": oauth_creds.token,
+                            "refresh_token": oauth_creds.refresh_token,
+                            "token_uri": oauth_creds.token_uri,
+                            "client_id": oauth_creds.client_id,
+                            "client_secret": oauth_creds.client_secret,
+                            "scopes": oauth_creds.scopes
+                        }
+                        await firebase_service.store_oauth_token(user_id, refreshed_token_data)
+                        print(f"DEBUG: Saved refreshed token to Firestore for user {user_id}")
+                    except Exception as refresh_error:
+                        print(f"ERROR: Failed to refresh token for user {user_id}: {refresh_error}")
+                        # Clear the bad token
+                        if user_id in oauth_credentials:
+                            del oauth_credentials[user_id]
+                        raise HTTPException(
+                            status_code=401,
+                            detail="Your Google Sheets connection has expired. Please click 'Connect to Google Sheets' to re-authenticate."
+                        )
+                
                 # Cache in memory
                 oauth_credentials[user_id] = oauth_creds
                 print(f"DEBUG: Loaded OAuth credentials from Firestore for user {user_id}")

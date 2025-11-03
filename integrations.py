@@ -463,19 +463,30 @@ def _authorize_gspread(scopes: List[str], service_account_path: str = "", oauth_
             _log("Refreshed expired OAuth token")
         except Exception as e:
             _log(f"Failed to refresh token: {e}")
+            _log("Your OAuth credentials have expired. Please reconnect to Google Sheets.")
             creds = None
             try:
                 if OAUTH_TOKEN_FILE.exists():
                     OAUTH_TOKEN_FILE.unlink()
+                    _log("Deleted expired token file")
             except Exception:
                 pass
     
     if not creds:
-        raise RuntimeError(
-            "Google Sheets not connected. Run `impressions connect-sheets` to link your "
-            "Google account, or provide GOOGLE_SHEETS_CREDS path to a service account JSON "
-            "and share your Sheet with that service account."
-        )
+        if oauth_creds is None:
+            # CLI or missing OAuth entirely
+            raise RuntimeError(
+                "Google Sheets not connected. Click 'Connect to Google Sheets' in the web app "
+                "to authenticate with your Google account, or run `impressions connect-sheets` "
+                "from the CLI. Alternatively, provide GOOGLE_SHEETS_CREDS path to a service "
+                "account JSON and share your Sheet with that service account."
+            )
+        else:
+            # Web app with expired token
+            raise RuntimeError(
+                "Your Google Sheets connection has expired. Please click 'Connect to Google Sheets' "
+                "again to re-authenticate with your Google account."
+            )
     return gspread.authorize(creds)
 
 def connect_sheets_oauth(scopes: List[str] = None, client_secrets_path: str = "") -> str:
