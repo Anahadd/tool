@@ -91,97 +91,55 @@ async def root():
     return "<h1>Kalshi Internal - Impressions Tool</h1><p>Frontend not found</p>"
 
 
-@app.get("/api/oauth-start")
-async def oauth_start(user_id: str = Depends(verify_firebase_token)):
-    """Start OAuth flow - returns authorization URL OR service account info"""
+@app.get("/api/service-account-info")
+async def get_service_account_info(user_id: str = Depends(verify_firebase_token)):
+    """Get the service account email that users need to share their sheets with"""
     try:
-        print(f"DEBUG: OAuth start requested for user {user_id}")
+        # Get service account email from the credentials file
+        creds_path = os.getenv("GOOGLE_SHEETS_CREDS", "")
         
-        # Get credentials.json from Firebase Storage
-        credentials_content = await firebase_service.get_credentials(user_id)
-        
-        print(f"DEBUG: Credentials retrieved: {bool(credentials_content)}")
-        
-        if not credentials_content:
-            print("ERROR: No credentials found in Firebase Storage")
+        if not creds_path:
             return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "Credentials not found. Please upload credentials.json first."}
+                status_code=500,
+                content={"success": False, "message": "Service account not configured on server"}
             )
         
-        # Check if it's a service account (much simpler!)
+        # Read the service account JSON to get the email
         import json
-        creds_data = json.loads(credentials_content)
+        with open(creds_path, 'r') as f:
+            creds_data = json.load(f)
         
-        if creds_data.get("type") == "service_account":
-            # Service account - no OAuth needed!
-            service_email = creds_data.get("client_email", "")
-            print(f"DEBUG: Service account detected: {service_email}")
-            return {
-                "success": True,
-                "is_service_account": True,
-                "service_email": service_email,
-                "message": f"Service account ready! Share your Google Sheet with: {service_email}"
-            }
+        service_email = creds_data.get("client_email", "")
         
-        # OAuth flow for web/installed app credentials
-        # Save to temporary file for OAuth flow
-        temp_path = Path(tempfile.gettempdir()) / f"impressions_creds_{user_id}.json"
-        temp_path.write_text(credentials_content)
-        print(f"DEBUG: Saved credentials to {temp_path}")
-        
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ]
-        
-        from google_auth_oauthlib.flow import Flow
-        
-        # Get the base URL for redirect
-        # Use environment variable or default
-        base_url = os.getenv("BASE_URL", "http://localhost:8000")
-        # Remove trailing slash to avoid double slashes
-        base_url = base_url.rstrip('/')
-        redirect_uri = f"{base_url}/api/oauth-callback"
-        
-        # Log for debugging
-        print(f"DEBUG: BASE_URL={base_url}")
-        print(f"DEBUG: redirect_uri={redirect_uri}")
-        
-        flow = Flow.from_client_secrets_file(
-            str(temp_path),
-            scopes=scopes,
-            redirect_uri=redirect_uri
-        )
-        
-        authorization_url, state = flow.authorization_url(
-            access_type='offline',
-            include_granted_scopes='true',
-            prompt='consent'  # Force consent screen every time to ensure callback executes
-        )
-        
-        # Store the state and user_id for callback
-        oauth_flow_state[state] = {
-            "user_id": user_id,
-            "creds_path": str(temp_path)
-        }
-        
-        print(f"DEBUG: OAuth URL generated successfully")
+        if not service_email:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "message": "Invalid service account configuration"}
+            )
         
         return {
             "success": True,
-            "is_service_account": False,
-            "auth_url": authorization_url,
-            "state": state
+            "service_email": service_email,
+            "instructions": [
+                "Open your Google Sheet",
+                "Click the 'Share' button (top right)",
+                f"Add this email: {service_email}",
+                "Give it 'Editor' access",
+                "Click 'Send' - Done!"
+            ]
         }
+    except FileNotFoundError:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Service account file not found on server"}
+        )
     except Exception as e:
-        error_msg = str(e)
-        print(f"ERROR: OAuth start failed: {error_msg}")
+        print(f"ERROR: Failed to get service account info: {e}")
         import traceback
         traceback.print_exc()
         return JSONResponse(
             status_code=500,
-            content={"success": False, "message": f"Failed to start OAuth: {error_msg}"}
+            content={"success": False, "message": f"Error: {str(e)}"}
         )
 
 
@@ -382,92 +340,17 @@ async def update_sheets(
     print(f"DEBUG: update_sheets called for user {user_id}")
     print(f"DEBUG: spreadsheet={spreadsheet}, worksheet={worksheet}")
     try:
-        # Get credentials.json from Firebase Storage
-        creds_content = await firebase_service.get_credentials(user_id)
-        if not creds_content:
-            raise HTTPException(status_code=400, detail="Credentials not found. Please upload credentials.json first.")
+        # Use the shared service account - no per-user credentials needed!
+        # Users just need to share their Google Sheet with the service account email
+        creds_path = os.getenv("GOOGLE_SHEETS_CREDS", "")
         
-        # Save to temporary file
-        creds_path = Path(tempfile.gettempdir()) / f"impressions_creds_{user_id}.json"
-        creds_path.write_text(creds_content)
-        
-        # Check if using service account (simpler!) or OAuth
-        import json
-        creds_content = await firebase_service.get_credentials(user_id)
-        if not creds_content:
+        if not creds_path:
             raise HTTPException(
-                status_code=400,
-                detail="Please upload credentials.json first (service account or OAuth client)."
+                status_code=500,
+                detail="Service account not configured on server. Contact administrator."
             )
         
-        creds_data = json.loads(creds_content)
-        oauth_creds = None
-        service_account_path = None
-        
-        if creds_data.get("type") == "service_account":
-            # Service account - use directly! No OAuth needed
-            print(f"DEBUG: Using service account authentication for user {user_id}")
-            service_account_path = str(creds_path)
-            # oauth_creds stays None, will use service_account_path in integrations
-        else:
-            # OAuth flow - get credentials from memory or Firestore
-            if user_id in oauth_credentials:
-                # Already in memory
-                oauth_creds = oauth_credentials[user_id]
-                print(f"DEBUG: Using OAuth credentials from memory for user {user_id}")
-            else:
-                # Try to load from Firestore
-                token_data = await firebase_service.get_oauth_token(user_id)
-                if token_data:
-                    # Reconstruct credentials from token data
-                    from google.oauth2.credentials import Credentials
-                    from google.auth.transport.requests import Request as GoogleRequest
-                    oauth_creds = Credentials(
-                        token=token_data.get("token"),
-                        refresh_token=token_data.get("refresh_token"),
-                        token_uri=token_data.get("token_uri"),
-                        client_id=token_data.get("client_id"),
-                        client_secret=token_data.get("client_secret"),
-                        scopes=token_data.get("scopes")
-                    )
-                    
-                    # Check if token is expired and try to refresh
-                    if oauth_creds.expired and oauth_creds.refresh_token:
-                        try:
-                            oauth_creds.refresh(GoogleRequest())
-                            print(f"DEBUG: Refreshed expired token for user {user_id}")
-                            
-                            # Save refreshed token back to Firestore
-                            refreshed_token_data = {
-                                "token": oauth_creds.token,
-                                "refresh_token": oauth_creds.refresh_token,
-                                "token_uri": oauth_creds.token_uri,
-                                "client_id": oauth_creds.client_id,
-                                "client_secret": oauth_creds.client_secret,
-                                "scopes": oauth_creds.scopes
-                            }
-                            await firebase_service.store_oauth_token(user_id, refreshed_token_data)
-                            print(f"DEBUG: Saved refreshed token to Firestore for user {user_id}")
-                        except Exception as refresh_error:
-                            print(f"ERROR: Failed to refresh token for user {user_id}: {refresh_error}")
-                            # Clear the bad token
-                            if user_id in oauth_credentials:
-                                del oauth_credentials[user_id]
-                            raise HTTPException(
-                                status_code=401,
-                                detail="Your Google Sheets connection has expired. Please click 'Connect to Google Sheets' to re-authenticate."
-                            )
-                    
-                    # Cache in memory
-                    oauth_credentials[user_id] = oauth_creds
-                    print(f"DEBUG: Loaded OAuth credentials from Firestore for user {user_id}")
-            
-            # Require OAuth authentication if not service account
-            if not oauth_creds:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="Please click 'Connect to Google Sheets' button first to authenticate with your Google account."
-                )
+        print(f"DEBUG: Using shared service account for user {user_id}")
         
         disabled_cols = []
         if disable_columns:
@@ -482,12 +365,11 @@ async def update_sheets(
         await integrations_mod.update_sheet_views_likes_comments(
             spreadsheet=spreadsheet,
             worksheet=worksheet,
-            creds_path=str(creds_path),
+            creds_path=creds_path,
             disabled_columns=disabled_cols,
             override=override,
             start_row=start_row,
             end_row=end_row,
-            oauth_creds=oauth_creds,
         )
         
         return {

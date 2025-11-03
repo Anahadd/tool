@@ -32,8 +32,8 @@ except Exception:
     pass
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
-# Optional service account JSON path (preferred for automation). If absent, we'll
-# try OAuth user auth using a saved token created by the CLI.
+# Service account JSON path - REQUIRED for authentication
+# Users just need to share their Google Sheets with this service account email
 SHEETS_CREDS = os.getenv("GOOGLE_SHEETS_CREDS", "")
 
 # Spreadsheet URL or ID (URL recommended) - defaults to empty, use set-defaults or pass via CLI
@@ -393,7 +393,6 @@ def _open_sheet(
     creds_path: str,
     spreadsheet_title: str,
     worksheet_name: str = "Impressions",
-    oauth_creds = None,
 ):
     val = (spreadsheet_title or "").strip()
     is_url = val.startswith("http://") or val.startswith("https://")
@@ -404,7 +403,7 @@ def _open_sheet(
     if not (is_url or is_key) and allow_title:
         scopes.append("https://www.googleapis.com/auth/drive.readonly")
 
-    client = _authorize_gspread(scopes=scopes, service_account_path=creds_path, oauth_creds=oauth_creds)
+    client = _authorize_gspread(scopes=scopes, service_account_path=creds_path)
 
     ss = None
     try:
@@ -432,62 +431,33 @@ def _open_sheet(
         ws = ss.get_worksheet(0)
     return ws
 
-def _authorize_gspread(scopes: List[str], service_account_path: str = "", oauth_creds = None):
+def _authorize_gspread(scopes: List[str], service_account_path: str = ""):
+    """
+    Authorize gspread using service account credentials.
+    Users must share their Google Sheets with the service account email.
+    """
     sa_path = (service_account_path or os.getenv("GOOGLE_SHEETS_CREDS") or "").strip()
-    if sa_path:
-        try:
-            creds = ServiceAccountCredentials.from_service_account_file(sa_path, scopes=scopes)
-            return gspread.authorize(creds)
-        except Exception:
-            # fall through to OAuth
-            pass
-
-    # Check for OAuth credentials passed from web app (in-memory)
-    creds = None
-    if oauth_creds:
-        # Use the Credentials object directly - no JSON serialization needed!
-        creds = oauth_creds
-        _log("Using OAuth credentials from web app memory")
     
-    # Fall back to OAuth token from file (for CLI usage)
-    if not creds and OAUTH_TOKEN_FILE.exists():
-        try:
-            creds = UserCredentials.from_authorized_user_file(str(OAUTH_TOKEN_FILE), scopes)
-        except Exception:
-            creds = None
+    if not sa_path:
+        raise RuntimeError(
+            "GOOGLE_SHEETS_CREDS environment variable not set. "
+            "This should point to the service account JSON file."
+        )
     
-    # Refresh if expired
-    if creds and getattr(creds, "expired", False) and getattr(creds, "refresh_token", None):
-        try:
-            creds.refresh(Request())
-            _log("Refreshed expired OAuth token")
-        except Exception as e:
-            _log(f"Failed to refresh token: {e}")
-            _log("Your OAuth credentials have expired. Please reconnect to Google Sheets.")
-            creds = None
-            try:
-                if OAUTH_TOKEN_FILE.exists():
-                    OAUTH_TOKEN_FILE.unlink()
-                    _log("Deleted expired token file")
-            except Exception:
-                pass
-    
-    if not creds:
-        if oauth_creds is None:
-            # CLI or missing OAuth entirely
-            raise RuntimeError(
-                "Google Sheets not connected. Click 'Connect to Google Sheets' in the web app "
-                "to authenticate with your Google account, or run `impressions connect-sheets` "
-                "from the CLI. Alternatively, provide GOOGLE_SHEETS_CREDS path to a service "
-                "account JSON and share your Sheet with that service account."
-            )
-        else:
-            # Web app with expired token
-            raise RuntimeError(
-                "Your Google Sheets connection has expired. Please click 'Connect to Google Sheets' "
-                "again to re-authenticate with your Google account."
-            )
-    return gspread.authorize(creds)
+    try:
+        creds = ServiceAccountCredentials.from_service_account_file(sa_path, scopes=scopes)
+        _log(f"Using service account from: {sa_path}")
+        return gspread.authorize(creds)
+    except FileNotFoundError:
+        raise RuntimeError(
+            f"Service account file not found at: {sa_path}\n"
+            f"Make sure GOOGLE_SHEETS_CREDS points to a valid service account JSON."
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to authorize with service account: {e}\n"
+            f"Check that the JSON file is valid and the service account has the right permissions."
+        )
 
 def connect_sheets_oauth(scopes: List[str] = None, client_secrets_path: str = "") -> str:
     use_scopes = scopes or [
@@ -517,7 +487,6 @@ async def update_sheet_views_likes_comments(
     override: bool = True,
     start_row: Optional[int] = None,
     end_row: Optional[int] = None,
-    oauth_creds = None,
 ):
     """Update Google Sheet with latest stats. Production-ready with error handling and progress tracking."""
     try:
@@ -533,7 +502,7 @@ async def update_sheet_views_likes_comments(
             )
 
         _log(f"Opening spreadsheet: {spreadsheet_title[:50]}...")
-        ws = _open_sheet(creds_path, spreadsheet_title, worksheet_name, oauth_creds=oauth_creds)
+        ws = _open_sheet(creds_path, spreadsheet_title, worksheet_name)
         
         _log("Reading sheet data...")
         values = ws.get_all_values()
