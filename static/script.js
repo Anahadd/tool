@@ -28,39 +28,19 @@ function setupEventListeners() {
         googleBtn.addEventListener('click', handleGoogleSignIn);
     }
     
-    // Credentials Setup Page
-    const setupDropZone = document.getElementById('setupDropZone');
-    if (setupDropZone) {
-        setupDropZone.addEventListener('click', () => document.getElementById('setupFileInput').click());
-        setupDropZone.addEventListener('dragover', handleSetupDragOver);
-        setupDropZone.addEventListener('dragleave', handleSetupDragLeave);
-        setupDropZone.addEventListener('drop', handleSetupDrop);
-    }
-    
-    const setupFileInput = document.getElementById('setupFileInput');
-    if (setupFileInput) {
-        setupFileInput.addEventListener('change', handleSetupFileSelect);
-    }
-    
-    const setupChooseBtn = document.getElementById('setupChooseFileBtn');
-    if (setupChooseBtn) {
-        setupChooseBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.getElementById('setupFileInput').click();
-        });
-    }
-    
-    const setupClearBtn = document.getElementById('setupClearFileBtn');
-    if (setupClearBtn) {
-        setupClearBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            clearSetupFile();
-        });
+    // Service Account Info Page
+    const copyEmailBtn = document.getElementById('copyEmailBtn');
+    if (copyEmailBtn) {
+        copyEmailBtn.addEventListener('click', copyServiceAccountEmail);
     }
     
     const continueBtn = document.getElementById('continueBtn');
     if (continueBtn) {
-        continueBtn.addEventListener('click', handleContinueFromSetup);
+        continueBtn.addEventListener('click', () => {
+            document.getElementById('credentialsSetupPage').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            loadSheets();
+        });
     }
     
     // Dashboard buttons
@@ -101,24 +81,9 @@ function setupEventListeners() {
         closeSettingsBtn.addEventListener('click', closeSettingsModal);
     }
     
-    const chooseCredBtn = document.getElementById('chooseCredFileBtn');
-    if (chooseCredBtn) {
-        chooseCredBtn.addEventListener('click', () => document.getElementById('credentialsFile').click());
-    }
-    
-    const credFile = document.getElementById('credentialsFile');
-    if (credFile) {
-        credFile.addEventListener('change', handleCredentialsUpload);
-    }
-    
-    const connectBtn = document.getElementById('connectSheetsBtn');
-    if (connectBtn) {
-        connectBtn.addEventListener('click', connectToGoogleSheets);
-    }
-    
-    const deleteBtn = document.getElementById('deleteCredentialsBtn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', deleteCredentials);
+    const copyEmailSettingsBtn = document.getElementById('copyEmailSettingsBtn');
+    if (copyEmailSettingsBtn) {
+        copyEmailSettingsBtn.addEventListener('click', copyServiceAccountEmail);
     }
     
     // Search
@@ -169,15 +134,15 @@ function showAuthPage() {
 async function onUserSignedIn(user) {
     console.log('User signed in:', user.email);
     
-    // Check if user has credentials
-    const hasCredentials = await window.firebase.hasCredentials();
+    // Check if user is new (no sheets saved) or returning
+    const sheets = await window.firebase.getSheets();
     
-    if (!hasCredentials) {
-        // First time user - show credentials setup page
+    if (!sheets || sheets.length === 0) {
+        // First time user - show service account info page
         document.getElementById('authPage').classList.add('hidden');
         document.getElementById('credentialsSetupPage').classList.remove('hidden');
         document.getElementById('adminDashboard').classList.add('hidden');
-        showToast('Welcome! Please upload your credentials to continue.', 'info');
+        showToast('Welcome! Please share your Google Sheet with our service account.', 'info');
     } else {
         // Returning user - go straight to dashboard
         document.getElementById('authPage').classList.add('hidden');
@@ -185,9 +150,6 @@ async function onUserSignedIn(user) {
         document.getElementById('adminDashboard').classList.remove('hidden');
         
         showToast(`Welcome back, ${user.email}!`, 'success');
-        
-        // Check credentials status
-        await checkCredentialsStatus();
         
         // Load user's sheets
         await loadSheets();
@@ -198,168 +160,9 @@ async function onUserSignedIn(user) {
 // CREDENTIALS SETUP PAGE
 // ========================================
 
-let setupFile = null;
+// No setup files needed anymore - using shared service account!
 
-function handleSetupDragOver(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    document.getElementById('setupDropZone').classList.add('drag-over');
-}
-
-function handleSetupDragLeave(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    document.getElementById('setupDropZone').classList.remove('drag-over');
-}
-
-function handleSetupDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    document.getElementById('setupDropZone').classList.remove('drag-over');
-    
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        processSetupFile(files[0]);
-    }
-}
-
-function handleSetupFileSelect(e) {
-    const files = e.target.files;
-    if (files.length > 0) {
-        processSetupFile(files[0]);
-    }
-}
-
-function processSetupFile(file) {
-    if (!file.name.endsWith('.json')) {
-        showToast('Please upload a JSON file', 'error');
-        return;
-    }
-    
-    setupFile = file;
-    
-    // Update UI
-    document.getElementById('setupDropContent').classList.add('hidden');
-    document.getElementById('setupFileInfo').classList.remove('hidden');
-    document.getElementById('setupFileName').textContent = `✓ ${file.name}`;
-    document.getElementById('continueBtn').disabled = false;
-}
-
-function clearSetupFile() {
-    setupFile = null;
-    document.getElementById('setupDropContent').classList.remove('hidden');
-    document.getElementById('setupFileInfo').classList.add('hidden');
-    document.getElementById('setupFileInput').value = '';
-    document.getElementById('continueBtn').disabled = true;
-}
-
-async function handleContinueFromSetup() {
-    if (!setupFile) {
-        showToast('Please select a file first', 'error');
-        return;
-    }
-    
-    try {
-        showToast('Uploading credentials...', 'info');
-        
-        await window.firebase.uploadCredentials(setupFile);
-        
-        showToast('Credentials saved! Now connecting to Google Sheets...', 'success');
-        
-        // Automatically start OAuth flow
-        await connectToGoogleSheetsOnSetup();
-        
-    } catch (error) {
-        console.error('Upload error:', error);
-        showToast(`Upload failed: ${error.message}`, 'error');
-    }
-}
-
-async function connectToGoogleSheetsOnSetup() {
-    try {
-        const idToken = await window.firebase.getIdToken();
-        
-        const response = await fetch('/api/oauth-start', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${idToken}`
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.auth_url) {
-            const width = 600;
-            const height = 700;
-            const left = (screen.width / 2) - (width / 2);
-            const top = (screen.height / 2) - (height / 2);
-            
-            const popup = window.open(
-                data.auth_url,
-                'Google OAuth',
-                `width=${width},height=${height},left=${left},top=${top}`
-            );
-            
-            // Set up interval to check if popup closed
-            const checkPopupClosed = setInterval(() => {
-                if (popup && popup.closed) {
-                    clearInterval(checkPopupClosed);
-                    // Popup closed, show dashboard
-                    console.log('OAuth popup closed, showing dashboard');
-                    showDashboardAfterOAuth();
-                }
-            }, 500);
-            
-            // Listen for OAuth completion message
-            const messageHandler = async (event) => {
-                console.log('Received message:', event.data);
-                
-                if (event.data.type === 'oauth_success') {
-                    clearInterval(checkPopupClosed);
-                    showToast('Google Sheets connected! Loading dashboard...', 'success');
-                    await showDashboardAfterOAuth();
-                    window.removeEventListener('message', messageHandler);
-                } else if (event.data.type === 'oauth_error') {
-                    clearInterval(checkPopupClosed);
-                    showToast(`OAuth failed: ${event.data.message}`, 'error');
-                    await showDashboardAfterOAuth();
-                    window.removeEventListener('message', messageHandler);
-                }
-            };
-            
-            window.addEventListener('message', messageHandler);
-            
-            // Timeout after 5 minutes
-            setTimeout(() => {
-                clearInterval(checkPopupClosed);
-                window.removeEventListener('message', messageHandler);
-            }, 300000);
-            
-            showToast('Complete authorization in the popup window...', 'info');
-        } else {
-            throw new Error(data.message || 'Failed to start OAuth');
-        }
-    } catch (error) {
-        console.error('OAuth error:', error);
-        showToast(`Connection failed: ${error.message}`, 'error');
-        
-        // Still show dashboard even if OAuth fails
-        await showDashboardAfterOAuth();
-    }
-}
-
-async function showDashboardAfterOAuth() {
-    // Hide credentials setup page
-    document.getElementById('credentialsSetupPage').classList.add('hidden');
-    
-    // Show admin dashboard
-    document.getElementById('adminDashboard').classList.remove('hidden');
-    
-    // Load user's sheets
-    await loadSheets();
-    
-    console.log('Dashboard loaded');
-}
+// OAuth functions removed - using shared service account instead!
 
 // ========================================
 // SHEETS MANAGEMENT
@@ -780,132 +583,21 @@ function closeSettingsModal() {
     document.getElementById('settingsModal').classList.add('hidden');
 }
 
-async function checkCredentialsStatus() {
-    try {
-        const hasCredentials = await window.firebase.hasCredentials();
-        
-        const statusBox = document.getElementById('credentialsStatus');
-        const connectBtn = document.getElementById('connectSheetsBtn');
-        
-        if (hasCredentials) {
-            statusBox.classList.remove('hidden');
-            connectBtn.disabled = false;
-        } else {
-            statusBox.classList.add('hidden');
-            connectBtn.disabled = true;
-        }
-    } catch (error) {
-        console.error('Error checking credentials:', error);
-    }
-}
+// Service account email (no credentials needed!)
+const SERVICE_ACCOUNT_EMAIL = 'kalshitoolsalman@gen-lang-client-0071269503.iam.gserviceaccount.com';
 
-async function handleCredentialsUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    if (!file.name.endsWith('.json')) {
-        showToast('Please upload a JSON file', 'error');
-        return;
-    }
-    
+async function copyServiceAccountEmail() {
     try {
-        showToast('Uploading credentials...', 'info');
-        await window.firebase.uploadCredentials(file);
-        showToast('✓ Credentials saved to your account!', 'success');
-        await checkCredentialsStatus();
+        await navigator.clipboard.writeText(SERVICE_ACCOUNT_EMAIL);
+        showToast('✓ Email copied to clipboard!', 'success');
+        console.log('SERVICE ACCOUNT EMAIL:', SERVICE_ACCOUNT_EMAIL);
     } catch (error) {
-        console.error('Upload error:', error);
-        showToast(`Upload failed: ${error.message}`, 'error');
-    }
-}
-
-async function connectToGoogleSheets() {
-    try {
-        showToast('Checking credentials type...', 'info');
-        
-        const idToken = await window.firebase.getIdToken();
-        console.log('ID Token retrieved:', idToken ? 'Yes' : 'No');
-        
-        if (!idToken) {
-            throw new Error('Not authenticated - please refresh and sign in again');
-        }
-        
-        const response = await fetch('/api/oauth-start', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${idToken}`
-            }
-        });
-        
-        console.log('OAuth start response status:', response.status);
-        
-        const data = await response.json();
-        console.log('OAuth start response data:', data);
-        
-        // Check if it's a service account (no OAuth needed!)
-        if (data.is_service_account) {
-            const email = data.service_email || 'unknown';
-            showToast(`✓ Service account ready!`, 'success');
-            
-            // Show instructions in a modal or long toast
-            const message = `Service Account Connected!\n\nEmail: ${email}\n\nTo use this:\n1. Open your Google Sheet\n2. Click "Share"\n3. Add this email as Editor\n4. Done! No OAuth needed.`;
-            
-            // Show in console for copy-paste
-            console.log('='.repeat(60));
-            console.log('SERVICE ACCOUNT EMAIL (copy this):');
-            console.log(email);
-            console.log('='.repeat(60));
-            console.log('Share your Google Sheet with this email and give it Editor access');
-            
-            // Show alert with the email
-            alert(message + '\n\nThe email has been copied to your clipboard!');
-            
-            // Copy to clipboard
-            try {
-                await navigator.clipboard.writeText(email);
-            } catch (e) {
-                console.error('Failed to copy to clipboard:', e);
-            }
-            
-            return;
-        }
-        
-        // OAuth flow for web app credentials
-        if (data.auth_url) {
-            const width = 600;
-            const height = 700;
-            const left = (screen.width / 2) - (width / 2);
-            const top = (screen.height / 2) - (height / 2);
-            
-            window.open(
-                data.auth_url,
-                'Google OAuth',
-                `width=${width},height=${height},left=${left},top=${top}`
-            );
-            
-            showToast('Complete authorization in popup...', 'info');
-        } else {
-            throw new Error(data.message || 'Failed to start authentication');
-        }
-    } catch (error) {
-        console.error('Connection error:', error);
-        showToast(`Connection failed: ${error.message}`, 'error');
-    }
-}
-
-async function deleteCredentials() {
-    if (!confirm('Are you sure you want to delete your saved credentials? You\'ll need to upload them again.')) {
-        return;
-    }
-    
-    try {
-        showToast('Deleting credentials...', 'info');
-        await window.firebase.deleteCredentials();
-        showToast('✓ Credentials deleted', 'success');
-        await checkCredentialsStatus();
-    } catch (error) {
-        console.error('Delete error:', error);
-        showToast(`Delete failed: ${error.message}`, 'error');
+        console.error('Failed to copy to clipboard:', error);
+        showToast('Failed to copy. Check console for email.', 'error');
+        console.log('='.repeat(60));
+        console.log('SERVICE ACCOUNT EMAIL (copy this):');
+        console.log(SERVICE_ACCOUNT_EMAIL);
+        console.log('='.repeat(60));
     }
 }
 

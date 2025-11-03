@@ -33,33 +33,36 @@
         </div>
     </div>
 
-    <!-- Credentials Setup Page (after first login) -->
+    <!-- Service Account Info Page (after first login) -->
     <div id="credentialsSetupPage" class="auth-page hidden">
-        <div class="auth-container" style="max-width: 600px;">
+        <div class="auth-container" style="max-width: 700px;">
             <div class="auth-card">
-                <h1>Add your credentials here</h1>
-                <p class="subtitle">Upload your Google OAuth credentials to continue</p>
+                <h1>📋 Important: Share Your Google Sheet</h1>
+                <p class="subtitle">To use this tool, share your Google Sheet with our service account</p>
                 
-                <div id="setupDropZone" class="setup-drop-zone">
-                    <div id="setupDropContent" class="drop-zone-content">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <p class="drop-text">Drag and drop credentials.json here</p>
-                        <p class="drop-subtext">or</p>
-                        <button type="button" id="setupChooseFileBtn" class="btn btn-secondary">Choose File</button>
+                <div style="background: #f0f9ff; border: 2px solid #3b82f6; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    <h3 style="margin: 0 0 1rem 0; color: #1e40af; font-size: 1.1rem;">Service Account Email:</h3>
+                    <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #ddd; font-family: monospace; font-size: 0.9rem; word-break: break-all; margin-bottom: 1rem;">
+                        kalshitoolsalman@gen-lang-client-0071269503.iam.gserviceaccount.com
                     </div>
-                    <div id="setupFileInfo" class="file-info hidden">
-                        <span id="setupFileName"></span>
-                        <button type="button" id="setupClearFileBtn" class="clear-btn">&times;</button>
-                    </div>
+                    <button id="copyEmailBtn" class="btn btn-secondary" style="width: 100%;">
+                        📋 Copy Email to Clipboard
+                    </button>
                 </div>
-                <input type="file" id="setupFileInput" accept=".json" style="display: none;">
                 
-                <button id="continueBtn" class="btn btn-primary btn-large" disabled style="margin-top: 1.5rem;">
-                    Continue
+                <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: #854d0e;">How to Share:</h4>
+                    <ol style="margin: 0; padding-left: 1.5rem; color: #713f12;">
+                        <li>Open your Google Sheet</li>
+                        <li>Click the <strong>"Share"</strong> button (top right)</li>
+                        <li>Paste the email above</li>
+                        <li>Set permission to <strong>"Editor"</strong></li>
+                        <li>Click <strong>"Send"</strong></li>
+                    </ol>
+                </div>
+                
+                <button id="continueBtn" class="btn btn-primary btn-large" style="margin-top: 1.5rem; width: 100%;">
+                    I've Shared My Sheet - Continue
                 </button>
             </div>
         </div>
@@ -153,32 +156,37 @@
     <div id="settingsModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Credentials & Settings</h2>
+                <h2>Settings & Info</h2>
                 <button id="closeSettingsModalBtn" class="close-btn">&times;</button>
             </div>
             <div class="modal-body">
-                <h3>Google OAuth Credentials</h3>
-                <div id="credentialsStatus" class="status-box hidden">
-                    <span class="status-icon">✓</span> Credentials saved
-                </div>
+                <h3>📋 Service Account Email</h3>
+                <p style="color: #6b7280; margin-bottom: 1rem;">Share your Google Sheets with this email (as Editor) to use the tool:</p>
                 
-                <div id="uploadArea" class="upload-area">
-                    <p>Upload your credentials.json file</p>
-                    <input type="file" id="credentialsFile" accept=".json" style="display: none;">
-                    <button id="chooseCredFileBtn" class="btn btn-secondary">
-                        Choose File
+                <div style="background: #f0f9ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <div style="background: white; padding: 0.75rem; border-radius: 6px; border: 1px solid #ddd; font-family: monospace; font-size: 0.85rem; word-break: break-all; margin-bottom: 0.75rem;">
+                        kalshitoolsalman@gen-lang-client-0071269503.iam.gserviceaccount.com
+                    </div>
+                    <button id="copyEmailSettingsBtn" class="btn btn-secondary" style="width: 100%;">
+                        📋 Copy Email
                     </button>
                 </div>
-
-                <div style="margin-top: 2rem;">
-                    <button id="connectSheetsBtn" class="btn btn-primary" disabled>Connect to Google Sheets</button>
-                    <p style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
-                        You need to connect once to authorize access to your Google Sheets
-                    </p>
+                
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-top: 1.5rem;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: #374151; font-size: 0.95rem;">How to Share Your Sheet:</h4>
+                    <ol style="margin: 0; padding-left: 1.5rem; color: #6b7280; font-size: 0.9rem; line-height: 1.6;">
+                        <li>Open your Google Sheet</li>
+                        <li>Click "Share" (top right)</li>
+                        <li>Paste the email above</li>
+                        <li>Select "Editor" permission</li>
+                        <li>Click "Send"</li>
+                    </ol>
                 </div>
-
-                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e5e7eb;">
-                    <button id="deleteCredentialsBtn" class="btn btn-danger">Delete Saved Credentials</button>
+                
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e5e7eb; text-align: center;">
+                    <p style="color: #9ca3af; font-size: 0.85rem;">
+                        No credential uploads needed • Works for all users
+                    </p>
                 </div>
             </div>
         </div>
