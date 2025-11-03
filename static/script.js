@@ -602,7 +602,7 @@ const SERVICE_ACCOUNT_EMAIL = 'kalshitoolsalman@gen-lang-client-0071269503.iam.g
 async function copyServiceAccountEmail() {
     try {
         await navigator.clipboard.writeText(SERVICE_ACCOUNT_EMAIL);
-        showToast('✓ Email copied to clipboard!', 'success');
+        showToast('Email copied to clipboard!', 'success');
         console.log('SERVICE ACCOUNT EMAIL:', SERVICE_ACCOUNT_EMAIL);
     } catch (error) {
         console.error('Failed to copy to clipboard:', error);
@@ -624,13 +624,13 @@ function showToast(message, type = 'info') {
     const msg = document.getElementById('toastMessage');
     
     const icons = {
-        'success': '✓',
-        'error': '✗',
-        'info': 'ℹ'
+        'success': '',
+        'error': '',
+        'info': ''
     };
     
     toast.className = `status-toast ${type}`;
-    icon.textContent = icons[type] || 'ℹ';
+    icon.textContent = icons[type] || '';
     msg.textContent = message;
     toast.classList.remove('hidden');
     
@@ -656,7 +656,7 @@ window.editSheet = editSheet;
 // OAuth callback listener
 window.addEventListener('message', async (event) => {
     if (event.data.type === 'oauth_success') {
-        showToast('✓ Google Sheets connected successfully!', 'success');
+        showToast('Google Sheets connected successfully!', 'success');
     } else if (event.data.type === 'oauth_error') {
         showToast(`OAuth failed: ${event.data.message}`, 'error');
     }
