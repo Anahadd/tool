@@ -93,7 +93,7 @@ async def root():
 
 @app.get("/api/oauth-start")
 async def oauth_start(user_id: str = Depends(verify_firebase_token)):
-    """Start OAuth flow - returns authorization URL"""
+    """Start OAuth flow - returns authorization URL OR service account info"""
     try:
         print(f"DEBUG: OAuth start requested for user {user_id}")
         
@@ -109,6 +109,22 @@ async def oauth_start(user_id: str = Depends(verify_firebase_token)):
                 content={"success": False, "message": "Credentials not found. Please upload credentials.json first."}
             )
         
+        # Check if it's a service account (much simpler!)
+        import json
+        creds_data = json.loads(credentials_content)
+        
+        if creds_data.get("type") == "service_account":
+            # Service account - no OAuth needed!
+            service_email = creds_data.get("client_email", "")
+            print(f"DEBUG: Service account detected: {service_email}")
+            return {
+                "success": True,
+                "is_service_account": True,
+                "service_email": service_email,
+                "message": f"Service account ready! Share your Google Sheet with: {service_email}"
+            }
+        
+        # OAuth flow for web/installed app credentials
         # Save to temporary file for OAuth flow
         temp_path = Path(tempfile.gettempdir()) / f"impressions_creds_{user_id}.json"
         temp_path.write_text(credentials_content)
@@ -154,6 +170,7 @@ async def oauth_start(user_id: str = Depends(verify_firebase_token)):
         
         return {
             "success": True,
+            "is_service_account": False,
             "auth_url": authorization_url,
             "state": state
         }
@@ -374,65 +391,83 @@ async def update_sheets(
         creds_path = Path(tempfile.gettempdir()) / f"impressions_creds_{user_id}.json"
         creds_path.write_text(creds_content)
         
-        # Get OAuth credentials from memory or Firestore
-        oauth_creds = None
-        if user_id in oauth_credentials:
-            # Already in memory
-            oauth_creds = oauth_credentials[user_id]
-            print(f"DEBUG: Using OAuth credentials from memory for user {user_id}")
-        else:
-            # Try to load from Firestore
-            token_data = await firebase_service.get_oauth_token(user_id)
-            if token_data:
-                # Reconstruct credentials from token data
-                from google.oauth2.credentials import Credentials
-                from google.auth.transport.requests import Request as GoogleRequest
-                oauth_creds = Credentials(
-                    token=token_data.get("token"),
-                    refresh_token=token_data.get("refresh_token"),
-                    token_uri=token_data.get("token_uri"),
-                    client_id=token_data.get("client_id"),
-                    client_secret=token_data.get("client_secret"),
-                    scopes=token_data.get("scopes")
-                )
-                
-                # Check if token is expired and try to refresh
-                if oauth_creds.expired and oauth_creds.refresh_token:
-                    try:
-                        oauth_creds.refresh(GoogleRequest())
-                        print(f"DEBUG: Refreshed expired token for user {user_id}")
-                        
-                        # Save refreshed token back to Firestore
-                        refreshed_token_data = {
-                            "token": oauth_creds.token,
-                            "refresh_token": oauth_creds.refresh_token,
-                            "token_uri": oauth_creds.token_uri,
-                            "client_id": oauth_creds.client_id,
-                            "client_secret": oauth_creds.client_secret,
-                            "scopes": oauth_creds.scopes
-                        }
-                        await firebase_service.store_oauth_token(user_id, refreshed_token_data)
-                        print(f"DEBUG: Saved refreshed token to Firestore for user {user_id}")
-                    except Exception as refresh_error:
-                        print(f"ERROR: Failed to refresh token for user {user_id}: {refresh_error}")
-                        # Clear the bad token
-                        if user_id in oauth_credentials:
-                            del oauth_credentials[user_id]
-                        raise HTTPException(
-                            status_code=401,
-                            detail="Your Google Sheets connection has expired. Please click 'Connect to Google Sheets' to re-authenticate."
-                        )
-                
-                # Cache in memory
-                oauth_credentials[user_id] = oauth_creds
-                print(f"DEBUG: Loaded OAuth credentials from Firestore for user {user_id}")
-        
-        # Require OAuth authentication
-        if not oauth_creds:
+        # Check if using service account (simpler!) or OAuth
+        import json
+        creds_content = await firebase_service.get_credentials(user_id)
+        if not creds_content:
             raise HTTPException(
-                status_code=400, 
-                detail="Please click 'Connect to Google Sheets' button first to authenticate with your Google account."
+                status_code=400,
+                detail="Please upload credentials.json first (service account or OAuth client)."
             )
+        
+        creds_data = json.loads(creds_content)
+        oauth_creds = None
+        service_account_path = None
+        
+        if creds_data.get("type") == "service_account":
+            # Service account - use directly! No OAuth needed
+            print(f"DEBUG: Using service account authentication for user {user_id}")
+            service_account_path = str(creds_path)
+            # oauth_creds stays None, will use service_account_path in integrations
+        else:
+            # OAuth flow - get credentials from memory or Firestore
+            if user_id in oauth_credentials:
+                # Already in memory
+                oauth_creds = oauth_credentials[user_id]
+                print(f"DEBUG: Using OAuth credentials from memory for user {user_id}")
+            else:
+                # Try to load from Firestore
+                token_data = await firebase_service.get_oauth_token(user_id)
+                if token_data:
+                    # Reconstruct credentials from token data
+                    from google.oauth2.credentials import Credentials
+                    from google.auth.transport.requests import Request as GoogleRequest
+                    oauth_creds = Credentials(
+                        token=token_data.get("token"),
+                        refresh_token=token_data.get("refresh_token"),
+                        token_uri=token_data.get("token_uri"),
+                        client_id=token_data.get("client_id"),
+                        client_secret=token_data.get("client_secret"),
+                        scopes=token_data.get("scopes")
+                    )
+                    
+                    # Check if token is expired and try to refresh
+                    if oauth_creds.expired and oauth_creds.refresh_token:
+                        try:
+                            oauth_creds.refresh(GoogleRequest())
+                            print(f"DEBUG: Refreshed expired token for user {user_id}")
+                            
+                            # Save refreshed token back to Firestore
+                            refreshed_token_data = {
+                                "token": oauth_creds.token,
+                                "refresh_token": oauth_creds.refresh_token,
+                                "token_uri": oauth_creds.token_uri,
+                                "client_id": oauth_creds.client_id,
+                                "client_secret": oauth_creds.client_secret,
+                                "scopes": oauth_creds.scopes
+                            }
+                            await firebase_service.store_oauth_token(user_id, refreshed_token_data)
+                            print(f"DEBUG: Saved refreshed token to Firestore for user {user_id}")
+                        except Exception as refresh_error:
+                            print(f"ERROR: Failed to refresh token for user {user_id}: {refresh_error}")
+                            # Clear the bad token
+                            if user_id in oauth_credentials:
+                                del oauth_credentials[user_id]
+                            raise HTTPException(
+                                status_code=401,
+                                detail="Your Google Sheets connection has expired. Please click 'Connect to Google Sheets' to re-authenticate."
+                            )
+                    
+                    # Cache in memory
+                    oauth_credentials[user_id] = oauth_creds
+                    print(f"DEBUG: Loaded OAuth credentials from Firestore for user {user_id}")
+            
+            # Require OAuth authentication if not service account
+            if not oauth_creds:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Please click 'Connect to Google Sheets' button first to authenticate with your Google account."
+                )
         
         disabled_cols = []
         if disable_columns:

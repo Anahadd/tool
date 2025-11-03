@@ -821,7 +821,7 @@ async function handleCredentialsUpload(e) {
 
 async function connectToGoogleSheets() {
     try {
-        showToast('Connecting to Google Sheets...', 'info');
+        showToast('Checking credentials type...', 'info');
         
         const idToken = await window.firebase.getIdToken();
         console.log('ID Token retrieved:', idToken ? 'Yes' : 'No');
@@ -842,6 +842,35 @@ async function connectToGoogleSheets() {
         const data = await response.json();
         console.log('OAuth start response data:', data);
         
+        // Check if it's a service account (no OAuth needed!)
+        if (data.is_service_account) {
+            const email = data.service_email || 'unknown';
+            showToast(`✓ Service account ready!`, 'success');
+            
+            // Show instructions in a modal or long toast
+            const message = `Service Account Connected!\n\nEmail: ${email}\n\nTo use this:\n1. Open your Google Sheet\n2. Click "Share"\n3. Add this email as Editor\n4. Done! No OAuth needed.`;
+            
+            // Show in console for copy-paste
+            console.log('='.repeat(60));
+            console.log('SERVICE ACCOUNT EMAIL (copy this):');
+            console.log(email);
+            console.log('='.repeat(60));
+            console.log('Share your Google Sheet with this email and give it Editor access');
+            
+            // Show alert with the email
+            alert(message + '\n\nThe email has been copied to your clipboard!');
+            
+            // Copy to clipboard
+            try {
+                await navigator.clipboard.writeText(email);
+            } catch (e) {
+                console.error('Failed to copy to clipboard:', e);
+            }
+            
+            return;
+        }
+        
+        // OAuth flow for web app credentials
         if (data.auth_url) {
             const width = 600;
             const height = 700;
@@ -856,7 +885,7 @@ async function connectToGoogleSheets() {
             
             showToast('Complete authorization in popup...', 'info');
         } else {
-            throw new Error(data.message || 'Failed to start OAuth');
+            throw new Error(data.message || 'Failed to start authentication');
         }
     } catch (error) {
         console.error('Connection error:', error);
