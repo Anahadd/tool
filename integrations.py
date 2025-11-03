@@ -92,55 +92,84 @@ async def run_tiktok(urls, show_progress=False):
     all_results = []
     total = len(urls)
     
-    try:
-        async with TikTokApi() as api:
-            await api.create_sessions(
-                ms_tokens=[tiktokmod.MS_TOKEN] if tiktokmod.MS_TOKEN else None,
-                num_sessions=1,
-                sleep_after=1,
-                headless=True,
-                browser=os.getenv("TIKTOK_BROWSER", "chromium"),
-                # Increase timeout for slower environments (Railway, etc.)
-                timeout=int(os.getenv("PLAYWRIGHT_TIMEOUT", "60000")),  # 60 seconds default
-            )
-            
-            # Process in batches to avoid overwhelming the API
-            for i in range(0, total, TIKTOK_BATCH_SIZE):
-                batch = urls[i:i + TIKTOK_BATCH_SIZE]
-                if show_progress:
-                    _progress(i, total, "Fetching TikTok")
-                
-                try:
-                    batch_results = await asyncio.gather(
-                        *(tiktokmod.fetch_stats(api, u) for u in batch),
-                        return_exceptions=True
-                    )
-                    # Handle individual failures
-                    for idx, result in enumerate(batch_results):
-                        if isinstance(result, Exception):
-                            url = batch[idx]
-                            _log(f"Warning: TikTok fetch failed for {url}: {result}")
-                            all_results.append((url, "", "", "", "", f"error:{type(result).__name__}"))
-                        else:
-                            all_results.append(result)
-                except Exception as e:
-                    _log(f"Error processing TikTok batch {i//TIKTOK_BATCH_SIZE + 1}: {e}")
-                    # Add error results for all URLs in failed batch
-                    for url in batch:
-                        all_results.append((url, "", "", "", "", f"batch_error:{type(e).__name__}"))
-                
-                # Configurable delay between batches to manage rate limits
-                if i + TIKTOK_BATCH_SIZE < total:
-                    await asyncio.sleep(TIKTOK_BATCH_DELAY)
-            
-            if show_progress:
-                _progress(total, total, "Fetching TikTok")
-    except Exception as e:
-        _log(f"Fatal error initializing TikTok API: {e}")
-        # Return error results for all URLs
-        return [(url, "", "", "", "", f"fatal:{type(e).__name__}") for url in urls]
+    # Configuration
+    timeout = int(os.getenv("PLAYWRIGHT_TIMEOUT", "120000"))  # 120 seconds default (Railway needs more time)
+    preferred_browser = os.getenv("TIKTOK_BROWSER", "chromium")
     
-    return all_results
+    # Try multiple strategies for session creation
+    browsers_to_try = [preferred_browser]
+    if preferred_browser != "firefox":
+        browsers_to_try.append("firefox")
+    
+    api_initialized = False
+    last_error = None
+    
+    for browser in browsers_to_try:
+        try:
+            _log(f"Attempting TikTok session with {browser} browser (timeout: {timeout}ms)...")
+            async with TikTokApi() as api:
+                try:
+                    await api.create_sessions(
+                        ms_tokens=[tiktokmod.MS_TOKEN] if tiktokmod.MS_TOKEN else None,
+                        num_sessions=1,
+                        sleep_after=1,
+                        headless=True,
+                        browser=browser,
+                        timeout=timeout,
+                    )
+                    api_initialized = True
+                    _log(f"✓ TikTok session created successfully with {browser}")
+                except Exception as session_error:
+                    _log(f"✗ Failed to create TikTok session with {browser}: {session_error}")
+                    last_error = session_error
+                    continue
+                
+                # If we get here, session was created successfully
+                # Process in batches to avoid overwhelming the API
+                for i in range(0, total, TIKTOK_BATCH_SIZE):
+                    batch = urls[i:i + TIKTOK_BATCH_SIZE]
+                    if show_progress:
+                        _progress(i, total, "Fetching TikTok")
+                    
+                    try:
+                        batch_results = await asyncio.gather(
+                            *(tiktokmod.fetch_stats(api, u) for u in batch),
+                            return_exceptions=True
+                        )
+                        # Handle individual failures
+                        for idx, result in enumerate(batch_results):
+                            if isinstance(result, Exception):
+                                url = batch[idx]
+                                _log(f"Warning: TikTok fetch failed for {url}: {result}")
+                                all_results.append((url, "", "", "", "", f"error:{type(result).__name__}"))
+                            else:
+                                all_results.append(result)
+                    except Exception as e:
+                        _log(f"Error processing TikTok batch {i//TIKTOK_BATCH_SIZE + 1}: {e}")
+                        # Add error results for all URLs in failed batch
+                        for url in batch:
+                            all_results.append((url, "", "", "", "", f"batch_error:{type(e).__name__}"))
+                    
+                    # Configurable delay between batches to manage rate limits
+                    if i + TIKTOK_BATCH_SIZE < total:
+                        await asyncio.sleep(TIKTOK_BATCH_DELAY)
+                
+                if show_progress:
+                    _progress(total, total, "Fetching TikTok")
+                
+                # Success! Return results
+                return all_results
+                
+        except Exception as e:
+            _log(f"Error with {browser} browser: {e}")
+            last_error = e
+            continue
+    
+    # If we get here, all browsers failed
+    _log(f"Fatal: Could not initialize TikTok API with any browser. Last error: {last_error}")
+    _log(f"Tip: Try setting PLAYWRIGHT_TIMEOUT=180000 or higher in Railway environment variables")
+    # Return error results for all URLs
+    return [(url, "", "", "", "", f"fatal:session_timeout") for url in urls]
 
 
 def run_youtube(urls, show_progress=False):
@@ -1007,7 +1036,7 @@ async def update_sheet_views_likes_comments(
         # Summary
         num_changed = sum(changed_rows)
         if unsupported_count > 0:
-            _log(f"Skipped {unsupported_count} unsupported platform(s) (YouTube/Facebook/X) - keeping existing data")
+            _log(f"Skipped {unsupported_count} unsupported platform(s) (Facebook/X) - keeping existing data")
         _log(f"✓ Complete! Updated {num_changed}/{total_urls} rows")
         
     except ValueError as e:
