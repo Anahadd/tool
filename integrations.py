@@ -436,12 +436,29 @@ def _authorize_gspread(scopes: List[str], service_account_path: str = ""):
     Authorize gspread using service account credentials.
     Users must share their Google Sheets with the service account email.
     """
+    # Try environment variable with JSON content first (Railway)
+    sa_json = os.getenv("GOOGLE_SHEETS_CREDS_JSON", "").strip()
+    
+    if sa_json:
+        try:
+            import json
+            sa_dict = json.loads(sa_json)
+            creds = ServiceAccountCredentials.from_service_account_info(sa_dict, scopes=scopes)
+            _log(f"Using service account from environment variable")
+            return gspread.authorize(creds)
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to parse GOOGLE_SHEETS_CREDS_JSON: {e}\n"
+                f"Make sure the JSON is valid."
+            )
+    
+    # Fall back to file path
     sa_path = (service_account_path or os.getenv("GOOGLE_SHEETS_CREDS") or "").strip()
     
     if not sa_path:
         raise RuntimeError(
-            "GOOGLE_SHEETS_CREDS environment variable not set. "
-            "This should point to the service account JSON file."
+            "Neither GOOGLE_SHEETS_CREDS_JSON nor GOOGLE_SHEETS_CREDS environment variable is set. "
+            "Set GOOGLE_SHEETS_CREDS_JSON with the full JSON content, or GOOGLE_SHEETS_CREDS with the file path."
         )
     
     try:

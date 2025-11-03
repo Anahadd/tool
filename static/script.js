@@ -49,9 +49,9 @@ function setupEventListeners() {
         addSheetBtn.addEventListener('click', showAddSheetModal);
     }
     
-    const settingsBtn = document.getElementById('settingsBtn');
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', showSettingsModal);
+    const howToUseBtn = document.getElementById('howToUseBtn');
+    if (howToUseBtn) {
+        howToUseBtn.addEventListener('click', showSettingsModal);
     }
     
     const logoutBtn = document.getElementById('logoutBtn');
@@ -75,15 +75,15 @@ function setupEventListeners() {
         saveSheetBtn.addEventListener('click', saveSheet);
     }
     
-    // Settings Modal
-    const closeSettingsBtn = document.getElementById('closeSettingsModalBtn');
-    if (closeSettingsBtn) {
-        closeSettingsBtn.addEventListener('click', closeSettingsModal);
+    // How To Use Modal
+    const closeHowToUseBtn = document.getElementById('closeHowToUseModalBtn');
+    if (closeHowToUseBtn) {
+        closeHowToUseBtn.addEventListener('click', closeHowToUseModal);
     }
     
-    const copyEmailSettingsBtn = document.getElementById('copyEmailSettingsBtn');
-    if (copyEmailSettingsBtn) {
-        copyEmailSettingsBtn.addEventListener('click', copyServiceAccountEmail);
+    const copyEmailHowToUseBtn = document.getElementById('copyEmailSettingsBtn');
+    if (copyEmailHowToUseBtn) {
+        copyEmailHowToUseBtn.addEventListener('click', copyServiceAccountEmail);
     }
     
     // Search
@@ -589,12 +589,11 @@ async function runUpdate(sheetId) {
 // ========================================
 
 function showSettingsModal() {
-    document.getElementById('settingsModal').classList.remove('hidden');
-    checkCredentialsStatus();
+    document.getElementById('howToUseModal').classList.remove('hidden');
 }
 
-function closeSettingsModal() {
-    document.getElementById('settingsModal').classList.add('hidden');
+function closeHowToUseModal() {
+    document.getElementById('howToUseModal').classList.add('hidden');
 }
 
 // Service account email (no credentials needed!)

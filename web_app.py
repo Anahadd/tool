@@ -95,21 +95,39 @@ async def root():
 async def get_service_account_info(user_id: str = Depends(verify_firebase_token)):
     """Get the service account email that users need to share their sheets with"""
     try:
-        # Get service account email from the credentials file
-        creds_path = os.getenv("GOOGLE_SHEETS_CREDS", "")
-        
-        if not creds_path:
-            return JSONResponse(
-                status_code=500,
-                content={"success": False, "message": "Service account not configured on server"}
-            )
-        
-        # Read the service account JSON to get the email
+        # Try environment variable with JSON content first (Railway)
         import json
-        with open(creds_path, 'r') as f:
-            creds_data = json.load(f)
+        sa_json = os.getenv("GOOGLE_SHEETS_CREDS_JSON", "").strip()
         
-        service_email = creds_data.get("client_email", "")
+        if sa_json:
+            try:
+                creds_data = json.loads(sa_json)
+                service_email = creds_data.get("client_email", "")
+            except Exception as e:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "message": f"Invalid GOOGLE_SHEETS_CREDS_JSON: {str(e)}"}
+                )
+        else:
+            # Fall back to file path
+            creds_path = os.getenv("GOOGLE_SHEETS_CREDS", "")
+            
+            if not creds_path:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "message": "Service account not configured on server"}
+                )
+            
+            # Read the service account JSON to get the email
+            try:
+                with open(creds_path, 'r') as f:
+                    creds_data = json.load(f)
+                service_email = creds_data.get("client_email", "")
+            except FileNotFoundError:
+                return JSONResponse(
+                    status_code=500,
+                    content={"success": False, "message": "Service account file not found on server"}
+                )
         
         if not service_email:
             return JSONResponse(
@@ -128,11 +146,6 @@ async def get_service_account_info(user_id: str = Depends(verify_firebase_token)
                 "Click 'Send' - Done!"
             ]
         }
-    except FileNotFoundError:
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "message": "Service account file not found on server"}
-        )
     except Exception as e:
         print(f"ERROR: Failed to get service account info: {e}")
         import traceback
@@ -342,13 +355,8 @@ async def update_sheets(
     try:
         # Use the shared service account - no per-user credentials needed!
         # Users just need to share their Google Sheet with the service account email
-        creds_path = os.getenv("GOOGLE_SHEETS_CREDS", "")
-        
-        if not creds_path:
-            raise HTTPException(
-                status_code=500,
-                detail="Service account not configured on server. Contact administrator."
-            )
+        # Pass empty string to let integrations.py handle env var lookup
+        creds_path = ""
         
         print(f"DEBUG: Using shared service account for user {user_id}")
         
