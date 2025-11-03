@@ -1,0 +1,263 @@
+/* Dark Mode Theme Override */
+body {
+    background: #0a0e1a !important;
+    color: #e5e7eb !important;
+}
+
+/* Kalshi Logo */
+.kalshi-logo {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    width: 120px;
+    height: auto;
+    z-index: 1000;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+}
+
+.kalshi-logo:hover {
+    opacity: 1;
+}
+
+/* Auth Pages - Dark */
+.auth-page {
+    background: #0a0e1a !important;
+}
+
+.auth-card {
+    background: #1a1f2e !important;
+    border: 1px solid #2d3748 !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+}
+
+.auth-card h1 {
+    color: #f9fafb !important;
+}
+
+.subtitle, .auth-footer-text {
+    color: #9ca3af !important;
+}
+
+/* Dashboard - Dark */
+.dashboard {
+    background: #0a0e1a !important;
+}
+
+.top-bar {
+    background: #1a1f2e !important;
+    border-bottom: 1px solid #2d3748 !important;
+    padding-left: 150px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.sheets-container {
+    padding-left: 150px !important;
+}
+
+.sheets-table {
+    background: #1a1f2e !important;
+    border: 1px solid #2d3748 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.sheets-table thead {
+    background: #0f1419 !important;
+    border-bottom: 1px solid #2d3748 !important;
+}
+
+.sheets-table th {
+    color: #9ca3af !important;
+}
+
+.sheets-table td {
+    border-top: 1px solid #2d3748 !important;
+    color: #e5e7eb !important;
+}
+
+.sheets-table tbody tr:hover {
+    background: #0f1419 !important;
+}
+
+.bottom-bar {
+    background: #1a1f2e !important;
+    border-top: 1px solid #2d3748 !important;
+    padding-left: 150px !important;
+    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Modals - Dark */
+.modal-content {
+    background: #1a1f2e !important;
+    border: 1px solid #2d3748 !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+.modal-header {
+    border-bottom: 1px solid #2d3748 !important;
+}
+
+.modal-header h2 {
+    color: #f9fafb !important;
+}
+
+.modal-body h3, .modal-body h4 {
+    color: #f9fafb !important;
+}
+
+.modal-body p, .modal-body label {
+    color: #e5e7eb !important;
+}
+
+.modal-footer {
+    border-top: 1px solid #2d3748 !important;
+}
+
+/* Inputs - Dark */
+.input-field, .search-input {
+    background: #0f1419 !important;
+    border: 1px solid #2d3748 !important;
+    color: #e5e7eb !important;
+}
+
+.input-field:focus, .search-input:focus {
+    border-color: #00D991 !important;
+    box-shadow: 0 0 0 3px rgba(0, 217, 145, 0.1) !important;
+}
+
+.input-field::placeholder, .search-input::placeholder {
+    color: #6b7280 !important;
+}
+
+/* Buttons - Kalshi Green */
+.btn-primary {
+    background: #00D991 !important;
+    color: #0a0e1a !important;
+    font-weight: 600 !important;
+}
+
+.btn-primary:hover {
+    background: #00bd7e !important;
+}
+
+.btn-primary:disabled {
+    background: #374151 !important;
+    color: #6b7280 !important;
+}
+
+.btn-secondary {
+    background: #374151 !important;
+    color: #e5e7eb !important;
+    border: 1px solid #4b5563 !important;
+}
+
+.btn-secondary:hover {
+    background: #4b5563 !important;
+}
+
+.btn-danger {
+    background: #dc2626 !important;
+}
+
+.btn-danger:hover {
+    background: #b91c1c !important;
+}
+
+/* Status Badge - Dark */
+.status-pending {
+    background: #374151 !important;
+    color: #9ca3af !important;
+}
+
+.status-running {
+    background: #1e3a8a !important;
+    color: #93c5fd !important;
+}
+
+.status-completed {
+    background: #064e3b !important;
+    color: #6ee7b7 !important;
+}
+
+.status-error {
+    background: #7f1d1d !important;
+    color: #fca5a5 !important;
+}
+
+/* Table Actions - Dark */
+.table-actions {
+    background: #1a1f2e !important;
+    border-bottom: 1px solid #2d3748 !important;
+}
+
+/* Status Toast - Dark */
+.status-toast {
+    background: #1a1f2e !important;
+    color: #e5e7eb !important;
+    border: 1px solid #2d3748 !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+.status-toast.success {
+    border-left: 4px solid #00D991 !important;
+}
+
+.status-toast.error {
+    border-left: 4px solid #dc2626 !important;
+}
+
+.status-toast.info {
+    border-left: 4px solid #3b82f6 !important;
+}
+
+/* Dropdown - Dark */
+.sheet-dropdown {
+    background: #1a1f2e !important;
+    border: 1px solid #2d3748 !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dropdown-item {
+    color: #e5e7eb !important;
+}
+
+.dropdown-item:hover {
+    background: #0f1419 !important;
+}
+
+/* Setup Drop Zone - Dark */
+.setup-drop-zone, .upload-area {
+    background: #0f1419 !important;
+    border: 2px dashed #374151 !important;
+}
+
+.setup-drop-zone.drag-over {
+    border-color: #00D991 !important;
+    background: rgba(0, 217, 145, 0.05) !important;
+}
+
+.drop-text, .drop-subtext {
+    color: #9ca3af !important;
+}
+
+/* Status Box - Dark */
+.status-box {
+    background: #064e3b !important;
+    border: 1px solid #059669 !important;
+    color: #6ee7b7 !important;
+}
+
+/* Form Groups - Dark */
+.form-group label {
+    color: #e5e7eb !important;
+}
+
+/* Close Button - Dark */
+.close-btn {
+    color: #9ca3af !important;
+}
+
+.close-btn:hover {
+    color: #f9fafb !important;
+}
+
