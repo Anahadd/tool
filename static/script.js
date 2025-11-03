@@ -135,24 +135,38 @@ async function onUserSignedIn(user) {
     console.log('User signed in:', user.email);
     
     // Check if user is new (no sheets saved) or returning
-    const sheets = await window.firebase.getSheets();
-    
-    if (!sheets || sheets.length === 0) {
-        // First time user - show service account info page
+    try {
+        const db = window.firebaseDB;
+        const sheetsRef = window.firebase.collection(db, 'user_sheets');
+        const q = window.firebase.query(
+            sheetsRef, 
+            window.firebase.where('user_id', '==', user.uid)
+        );
+        const querySnapshot = await window.firebase.getDocs(q);
+        
+        if (querySnapshot.empty) {
+            // First time user - show service account info page
+            document.getElementById('authPage').classList.add('hidden');
+            document.getElementById('credentialsSetupPage').classList.remove('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            showToast('Welcome! Please share your Google Sheet with our service account.', 'info');
+        } else {
+            // Returning user - go straight to dashboard
+            document.getElementById('authPage').classList.add('hidden');
+            document.getElementById('credentialsSetupPage').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            
+            showToast(`Welcome back, ${user.email}!`, 'success');
+            
+            // Load user's sheets
+            await loadSheets();
+        }
+    } catch (error) {
+        console.error('Error checking sheets:', error);
+        // On error, just show the info page to be safe
         document.getElementById('authPage').classList.add('hidden');
         document.getElementById('credentialsSetupPage').classList.remove('hidden');
         document.getElementById('adminDashboard').classList.add('hidden');
-        showToast('Welcome! Please share your Google Sheet with our service account.', 'info');
-    } else {
-        // Returning user - go straight to dashboard
-        document.getElementById('authPage').classList.add('hidden');
-        document.getElementById('credentialsSetupPage').classList.add('hidden');
-        document.getElementById('adminDashboard').classList.remove('hidden');
-        
-        showToast(`Welcome back, ${user.email}!`, 'success');
-        
-        // Load user's sheets
-        await loadSheets();
     }
 }
 
