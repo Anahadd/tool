@@ -71,10 +71,14 @@ def extract_tweet_id(url: str) -> Optional[str]:
 
 def is_twitter_url(url: str) -> bool:
     """Check if a URL is a Twitter/X tweet URL."""
-    url = clean_url(url)
-    parsed = urlparse(url)
-    host = (parsed.netloc or "").lower()
-    return ("twitter.com" in host or "x.com" in host) and "/status/" in url
+    try:
+        url = clean_url(url)
+        parsed = urlparse(url)
+        host = (parsed.netloc or "").lower()
+        return ("twitter.com" in host or "x.com" in host) and "/status/" in url
+    except (ValueError, Exception):
+        # Return False for any malformed URLs (e.g., invalid IPv6 URLs)
+        return False
 
 def canonicalize_twitter_url(url: str) -> Optional[str]:
     """
