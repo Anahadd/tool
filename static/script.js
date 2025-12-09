@@ -543,7 +543,7 @@ async function runUpdate(sheetId) {
         await updateSheetStatus(sheetId, 'pending');
         await loadSheets(); // Refresh to show PENDING badge
         
-        showToast(`Updating ${sheet.name}...`, 'info');
+        showToast(`⏳ Processing ${sheet.name}... This may take several minutes for large sheets. The update will continue even if your browser times out.`, 'info');
         
         // Get ID token for API auth
         const idToken = await window.firebase.getIdToken();
@@ -553,31 +553,59 @@ async function runUpdate(sheetId) {
         formData.append('worksheet', sheet.worksheet_name);
         formData.append('override', 'true');
         
-        const response = await fetch('/api/update-sheets', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${idToken}`
-            },
-            body: formData
-        });
+        // Create AbortController with a very long timeout (30 minutes)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000);
         
-        const data = await response.json();
-        
-        if (data.success) {
-            // Set status to COMPLETE with timestamp
-            await updateSheetStatus(sheetId, 'complete', new Date());
-            showToast(`${sheet.name} updated successfully!`, 'success');
-        } else {
-            // Set status to ERROR
-            await updateSheetStatus(sheetId, 'error', new Date());
-            throw new Error(data.message || 'Update failed');
+        try {
+            const response = await fetch('/api/update-sheets', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: formData,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Set status to COMPLETE with timestamp
+                await updateSheetStatus(sheetId, 'complete', new Date());
+                showToast(`✅ ${sheet.name} updated successfully!`, 'success');
+            } else {
+                // Set status to ERROR
+                await updateSheetStatus(sheetId, 'error', new Date());
+                throw new Error(data.message || 'Update failed');
+            }
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+            
+            // Check if it's a network timeout/protocol error
+            if (fetchError.name === 'AbortError' || 
+                fetchError.message.includes('Failed to fetch') || 
+                fetchError.message.includes('NetworkError')) {
+                
+                // The connection timed out, but the server is still processing
+                showToast(`⚠️ Connection timed out, but ${sheet.name} is still being processed on the server. Check back in a few minutes and refresh the page.`, 'info');
+                
+                // Keep status as PENDING instead of ERROR
+                await updateSheetStatus(sheetId, 'pending');
+                await loadSheets();
+                return; // Don't throw error
+            }
+            
+            // For other errors, rethrow
+            throw fetchError;
         }
         
     } catch (error) {
         console.error('Update error:', error);
-        // Set status to ERROR
+        // Set status to ERROR only for real errors
         await updateSheetStatus(sheetId, 'error', new Date());
-        showToast(`Update failed: ${error.message}`, 'error');
+        showToast(`❌ Update failed: ${error.message}`, 'error');
     } finally {
         // Reload to show updated status
         await loadSheets();
