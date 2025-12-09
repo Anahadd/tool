@@ -352,6 +352,10 @@ async def update_sheets(
     """Run the sheet update process"""
     print(f"DEBUG: update_sheets called for user {user_id}")
     print(f"DEBUG: spreadsheet={spreadsheet}, worksheet={worksheet}")
+    
+    # Set a timeout of 25 minutes (Railway has 30-minute limit, leave buffer)
+    TIMEOUT_SECONDS = 25 * 60
+    
     try:
         # Use the shared service account - no per-user credentials needed!
         # Users just need to share their Google Sheet with the service account email
@@ -370,15 +374,29 @@ async def update_sheets(
             if end_row is not None and end_row < start_row:
                 raise HTTPException(status_code=400, detail="End row must be >= start row")
         
-        await integrations_mod.update_sheet_views_likes_comments(
-            spreadsheet=spreadsheet,
-            worksheet=worksheet,
-            creds_path=creds_path,
-            disabled_columns=disabled_cols,
-            override=override,
-            start_row=start_row,
-            end_row=end_row,
-        )
+        # Wrap the update call with a timeout
+        try:
+            await asyncio.wait_for(
+                integrations_mod.update_sheet_views_likes_comments(
+                    spreadsheet=spreadsheet,
+                    worksheet=worksheet,
+                    creds_path=creds_path,
+                    disabled_columns=disabled_cols,
+                    override=override,
+                    start_row=start_row,
+                    end_row=end_row,
+                ),
+                timeout=TIMEOUT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            print(f"ERROR: Update timed out after {TIMEOUT_SECONDS} seconds")
+            return JSONResponse(
+                status_code=504,  # Gateway Timeout
+                content={
+                    "success": False, 
+                    "message": f"Update timed out after {TIMEOUT_SECONDS // 60} minutes. For large sheets (1000+ URLs), try processing in smaller batches using row ranges."
+                }
+            )
         
         return {
             "success": True,

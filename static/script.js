@@ -569,6 +569,31 @@ async function runUpdate(sheetId) {
             
             clearTimeout(timeoutId);
             
+            // Handle 502 Bad Gateway (server crashed) or 504 Gateway Timeout
+            if (response.status === 502 || response.status === 504) {
+                const isTimeout = response.status === 504;
+                const message = isTimeout 
+                    ? `⏱️ Update timed out for ${sheet.name}. For large sheets (1000+ URLs), try processing in smaller batches using row ranges. Partial data may have been updated.`
+                    : `⚠️ Server became overloaded processing ${sheet.name}. For large sheets (1000+ URLs), try processing in batches using row ranges. Partial data may have been updated.`;
+                
+                showToast(message, 'error');
+                await updateSheetStatus(sheetId, 'error', new Date());
+                await loadSheets();
+                return;
+            }
+            
+            // Handle other non-200 status codes
+            if (!response.ok && response.status !== 200) {
+                let errorMessage = `Server error (${response.status})`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch {
+                    // If can't parse JSON, use default message
+                }
+                throw new Error(errorMessage);
+            }
+            
             const data = await response.json();
             
             if (data.success) {
